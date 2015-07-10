@@ -8,78 +8,104 @@ using System.Collections;
 namespace SystemIdleMonitor
 {
 
-  #region pcQueue
-  class pcQueue
-  {
 
+
+  #region smQueue
+  /*
+   * ログ表示用のLatestValueの取得といくつかのプロパティが欲しいのでclass smQueueを作成。
+   * Que[Que.Count-1]で値を取得できないのでLatestValueに毎回記録する。
+   */
+  class smQueue
+  {
+    private Queue<float> Que;
     public bool Enable;
     public float Threshold { get; private set; }
     public int Capacity { get; private set; }
 
+
     readonly object sync = new object();
-    private List<float> items;
-    private List<float> Items
+    public int Count { get { return Que.Count; } }
+    public bool HasValue { get { return 0 < Que.Count; } }
+    public bool IsFilled { get { return Capacity <= Que.Count; } }
+    public float Average { get { lock (sync) { return (Enable && HasValue) ? Que.Average() : 0; } } }
+
+
+    //Que最後尾の値
+    private float latestValue;
+    public float LatestValue
     {
-      get { lock (sync) { return items; } }
-      set { lock (sync) { items = value; } }
+      get { lock (sync) { return (Enable && HasValue) ? latestValue : 0; } }
+      private set { lock (sync) { if (Enable)latestValue = value; } }
     }
-
-    public int Count { get { return Items.Count; } }
-    public bool HasData { get { return 0 < Items.Count; } }
-    public bool Fill { get { return Capacity <= Items.Count; } }
-
-    public float LatestValue { get { lock (sync) { return (Enable && HasData) ? Items[Items.Count - 1] : 0; } } }
-    public float Average { get { lock (sync) { return (Enable && HasData) ? Items.Average() : 0; } } }
-
 
     //Constructor
-    public pcQueue(float newThreshold, int newCapacity)
+    public smQueue(float newThreshold, int newCapacity)
     {
-      Enable = (0 <= newThreshold && 0 < newCapacity) ? true : false;
       Threshold = newThreshold;
       Capacity = newCapacity;
-      Items = new List<float>(newCapacity);
+
+      Enable = (0 <= newThreshold && 0 < newCapacity) ? true : false;
+      if (Enable) Que = new Queue<float>(newCapacity);
     }
 
-    //Reset
+
+    /// <summary>
+    ///  Reset
+    /// </summary>
     public void Reset()
     {
-      lock (sync) { Items = new List<float>(Capacity); }
-    }
-
-
-    //Push
-    public void Push(float value)
-    {
       if (Enable == false) return;
       lock (sync)
       {
-        if (Fill) Pop();
-        Items.Add(value);
-      }
-    }
-
-    //Pop
-    public void Pop()
-    {
-      if (Enable == false) return;
-      lock (sync)
-      {
-        if (HasData) Items.RemoveAt(0);
+        LatestValue = 0;
+        Que = new Queue<float>(Capacity);
       }
     }
 
 
-    //IsUnderThreshold
+    /// <summary>
+    ///  Enqueue
+    /// </summary>
+    public void Enqueue(float value)
+    {
+      if (Enable == false) return;
+      lock (sync)
+      {
+        if (IsFilled) Dequeue();
+        LatestValue = value;
+        Que.Enqueue(value);
+      }
+    }
+
+
+    /// <summary>
+    ///  Dequeue
+    /// </summary>
+    public void Dequeue()
+    {
+      if (Enable == false) return;
+      lock (sync)
+      {
+        if (HasValue) Que.Dequeue();
+        if (HasValue == false) LatestValue = 0;
+      }
+    }
+
+
+
+    /// <summary>
+    ///  IsUnderThreshold
+    /// </summary>
     public bool IsUnderThreshold
     {
       get
       {
-        if (Enable == false) return true;
+        if (Enable == false) return true;        //無効なら常にtrueを返す。
+        if (IsFilled == false) return false;
         lock (sync)
         {
-          //Averageは完全な０．００にならないから、Thresholdに０．０１加える。
-          if (Fill && Average < Threshold + 0.01) return true;
+          //Averageは完全な０．００にならないのでThresholdに０．０１加える。（特にＨＤＤ）
+          if (Average < Threshold + 0.01) return true;
           else return false;
         }
       }
@@ -92,18 +118,18 @@ namespace SystemIdleMonitor
 
 
 
+
+
+
   #region SystemMonitor
   class SystemMonitor
   {
     SystemCounter systemCounter;
-    pcQueue queCpu, queHDD, queNetwork;
-    int QueCapacity;
+    smQueue queCpu, queHDD, queNetwork;
 
-
-    Timer MonitoringTimer;
-    Random rnd = new Random();
-    public bool TimerIsWorking = false;
     readonly object sync = new object();
+    Timer MonitoringTimer;
+    bool TimerIsWorking;
 
 
     //Constructor
@@ -112,35 +138,39 @@ namespace SystemIdleMonitor
       lock (sync)
       {
         //Queue
-        QueCapacity = (int)Math.Ceiling(1.0 * duration_sec / 3.0);
-        queCpu = new pcQueue(thd_cpu, QueCapacity);
-        queHDD = new pcQueue(thd_hdd, QueCapacity);
-        queNetwork = new pcQueue(thd_net, QueCapacity);
+        int queCapacity = duration_sec;
+        queCpu = new smQueue(thd_cpu, queCapacity);        //thd or queCapacityがマイナスなら無効状態で作成される。
+        queHDD = new smQueue(thd_hdd, queCapacity);
+        queNetwork = new smQueue(thd_net, queCapacity);
 
         //SystemCounter
         systemCounter = new SystemCounter();
 
         //timer
         MonitoringTimer = new Timer(new TimerCallback(timer_Tick));
-        TimerStart();
       }
     }
 
 
-    //TimerStart
+
+    /// <summary>
+    /// TimerStart
+    /// </summary>
     public void TimerStart()
     {
       lock (sync)
       {
-        //interval = 1sec      CPU usage = 0.25%
-        //         = 3sec      CPU usage = 0.08%           //どちらも十分小さい
-        MonitoringTimer.Change(2000, 2000);      //  3.0s ± 1.0sec
+
+        MonitoringTimer.Change(0, 1000);         //１秒間隔で処理
         TimerIsWorking = true;
       }
     }
 
 
-    //TimerStop
+
+    /// <summary>
+    /// TimerStop
+    /// </summary>
     public void TimerStop()
     {
       lock (sync)
@@ -148,7 +178,7 @@ namespace SystemIdleMonitor
         TimerIsWorking = false;
         MonitoringTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-        //reset
+        //Reset
         queCpu.Reset();
         queHDD.Reset();
         queNetwork.Reset();
@@ -156,23 +186,25 @@ namespace SystemIdleMonitor
     }
 
 
-    //Tick
+
+    /// <summary>
+    /// timer_Tick
+    /// </summary>
     public void timer_Tick(object obj)
     {
-      //intervalが３秒と大きいので等間隔処理にならないようランダム時間待機
-      Thread.Sleep(rnd.Next(0, 2000));
-
       lock (sync)
       {
-        //Enqueque
-        if (queCpu.Enable) queCpu.Push(systemCounter.Processor.Usage());
-        if (queHDD.Enable) queHDD.Push(systemCounter.HDD.Transfer(BytePerSec.MiBps));
-        if (queNetwork.Enable) queNetwork.Push(systemCounter.Network.Transfer(bitPerSec.Mibps));
+        //値を取得する前にEnableでフィルター
+        if (queCpu.Enable) queCpu.Enqueue(systemCounter.Processor.Usage());
+        if (queHDD.Enable) queHDD.Enqueue(systemCounter.HDD.Transfer(BytePerSec.MiBps));
+        if (queNetwork.Enable) queNetwork.Enqueue(systemCounter.Network.Transfer(bitPerSec.Mibps));
       }
     }
 
 
-    //SystemIsIdle
+    /// <summary>
+    /// SystemIsIdle
+    /// </summary>
     public bool SystemIsIdle()
     {
       lock (sync)
@@ -185,12 +217,15 @@ namespace SystemIdleMonitor
     }
 
 
-    //show
-    public string GetMonitorState()
+
+    /// <summary>
+    /// 画面表示用のテキスト作成
+    /// </summary>
+    /// <returns></returns>
+    public string MonitoringState()
     {
       lock (sync)
       {
-        string lineformat = "{0,6:##0} %     {1,6:###0.0} MiB/s {2,6:###0.0} Mibps";
         string cpuformat = "{0,6:##0} %     ", hddformat = "{0,6:###0.0} MiB/s ", netformat = "{0,6:###0.0} Mibps";
         string line, empty = "             ";
 
@@ -199,10 +234,12 @@ namespace SystemIdleMonitor
 
 
         //Threshold
-        state.AppendFormat("Threshold :" + lineformat,
-                              queCpu.Threshold, queHDD.Threshold, queNetwork.Threshold);
-        state.AppendLine();
-        state.AppendLine();
+        line = "";
+        line += "Threshold :";
+        line += (queCpu.Enable) ? String.Format(cpuformat, queCpu.Threshold) : empty;
+        line += (queHDD.Enable) ? String.Format(hddformat, queHDD.Threshold) : empty;
+        line += (queNetwork.Enable) ? String.Format(netformat, queNetwork.Threshold) : empty;
+        state.AppendLine(line);
 
         //Average
         line = "";
@@ -220,13 +257,14 @@ namespace SystemIdleMonitor
         line += (queNetwork.Enable) ? String.Format(netformat, queNetwork.LatestValue) : empty;
         state.AppendLine(line);
 
-        //fill
-        var quelist = new pcQueue[] { queCpu, queHDD, queNetwork };
+        //Fill
+        var quelist = new smQueue[] { queCpu, queHDD, queNetwork };
         quelist = quelist.Where((que) => que.Enable).ToArray();
+        //Enableなqueがある？
         if (0 < quelist.Count())
         {
           line = "";
-          line += "     fill :";
+          line += "     Fill :";
           line += String.Format(" {0,3:##0} / {1,3:##0}", quelist[0].Count, quelist[0].Capacity);
           state.AppendLine(line);
         }

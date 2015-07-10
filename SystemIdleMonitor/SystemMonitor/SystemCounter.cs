@@ -20,10 +20,12 @@ namespace SystemIdleMonitor
     Network_Transfer,
   }
 
+
   public static class CategoryList
   {
     public const string Processor = "Processor", HDD = "PhysicalDisk", Network = "Network Interface";
   }
+
 
   public static class InstanceList
   {
@@ -34,6 +36,11 @@ namespace SystemIdleMonitor
   static class CounterFactory
   {
 
+    /// <summary>
+    /// PerformanceCounterを作成する
+    /// </summary>
+    /// <param name="counterName"></param>
+    /// <returns></returns>
     public static PerformanceCounter Create(CounterList counterName)
     {
       string[] nameset = GetCounterNameSet(counterName);
@@ -49,11 +56,11 @@ namespace SystemIdleMonitor
 
 
 
-    static string[] GetCounterNameSet(CounterList list)
+    static string[] GetCounterNameSet(CounterList counter)
     {
       string[] nameset = null;
 
-      switch (list)
+      switch (counter)
       {
 
         case CounterList.Processor:
@@ -101,9 +108,20 @@ namespace SystemIdleMonitor
   #endregion
 
 
+
+
+
+
+
+
   class SystemCounter
   {
-    //PreLoad
+
+    /// <summary>
+    /// PerformanceCounterの作成をバックグラウンドで処理しておく。
+    /// </summary>
+    /// <param name="delay">遅延時間　ms</param>
+    /// <remarks> PerformanceCounterの作成は初回のみ数秒かかる。</remarks>
     public static void PreLoad(int delay = 0)
     {
       System.Threading.ThreadPool.QueueUserWorkItem(new System.Threading.WaitCallback(
@@ -130,9 +148,11 @@ namespace SystemIdleMonitor
 
 
 
+
     #region Processor
-    //
-    //Processor
+    /// <summary>
+    /// ＣＰＵ使用率を取得する。
+    /// </summary>
     public class ProcessorMonitor
     {
       public PerformanceCounter Processor;
@@ -153,12 +173,16 @@ namespace SystemIdleMonitor
 
 
 
+
+
+
     #region HDD
-    //
-    //HDD
+    /// <summary>
+    /// ＨＤＤの転送量を取得する。
+    /// </summary>
     public class HddMonitor
     {
-      public List<HDDCounter> HDDList = new List<HDDCounter>();
+      public List<HDDCounter> HDDList;
       public HDDCounter HDDTotal;
 
 
@@ -171,7 +195,9 @@ namespace SystemIdleMonitor
       {
         HDDTotal = new HDDCounter(InstanceList.Total);
 
+        HDDList = new List<HDDCounter>();
         var table = CounterFactory.GetInstanceTable(CategoryList.HDD);
+
         foreach (var insName in table)
           if (insName.ToLower().Contains(InstanceList.Total.ToLower()) == false)
             HDDList.Add(new HDDCounter(insName));          //_Totalでないなら追加
@@ -204,33 +230,50 @@ namespace SystemIdleMonitor
       }
 
 
-      //Read
+
+      /// <summary>
+      /// 全ＨＤＤの読込み速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>読込み速度</returns>
       public float Read(BytePerSec prefix)
       {
-        try { return HDDTotal.Read(prefix); }
-        catch { return 0; }
+        return HDDTotal.Read(prefix);
       }
 
-      //Write
+
+      /// <summary>
+      /// 全ＨＤＤの書込み速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>書込み速度</returns>
       public float Write(BytePerSec prefix)
       {
-        try { return HDDTotal.Write(prefix); }
-        catch { return 0; }
+        return HDDTotal.Write(prefix);
       }
 
-      //Transfer
+
+      /// <summary>
+      /// 全ＨＤＤの転送速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>転送速度</returns>
       public float Transfer(BytePerSec prefix)
       {
-        try { return HDDTotal.Transfer(prefix); }
-        catch { return 0; }
+        return HDDTotal.Transfer(prefix);
       }
     }
 
 
 
+
+
+    /// <summary>
+    /// ドライブ単体の転送速度を取得する。
+    /// </summary>
     public class HDDCounter
     {
-      private string name;
+      private string name;             //ＨＤＤのインスタンス名　( _Total, C:\, D:\ )
       public PerformanceCounter readCounter, writeCounter, transferCounter;
 
       public HDDCounter(string insName)
@@ -247,21 +290,36 @@ namespace SystemIdleMonitor
 
       public string InsName { get { return name; } }
 
-      //Read
+
+      /// <summary>
+      /// ドライブ単体の読込み速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>読込み速度</returns>
       public float Read(BytePerSec prefix)
       {
         try { return Prefixing.Convert(readCounter.NextValue(), (SIPrefix)prefix); }
         catch { return 0; }
       }
 
-      //Write
+
+      /// <summary>
+      /// ドライブ単体の書込み速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>書込み速度</returns>
       public float Write(BytePerSec prefix)
       {
         try { return Prefixing.Convert(writeCounter.NextValue(), (SIPrefix)prefix); }
         catch { return 0; }
       }
 
-      //Transfers
+
+      /// <summary>
+      /// ドライブ単体の転送速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>転送速度</returns>
       public float Transfer(BytePerSec prefix)
       {
         try { return Prefixing.Convert(transferCounter.NextValue(), (SIPrefix)prefix); }
@@ -273,23 +331,29 @@ namespace SystemIdleMonitor
 
 
 
+
+
+
     #region Network
-    //
-    //Network
+    /// <summary>
+    /// ネットワークの転送速度を取得
+    /// </summary>
     public class NetworkMonitor
     {
-      public List<NetworkCounter> NetworkList = new List<NetworkCounter>();
+      public List<NetworkCounter> NetworkList;
 
       public NetworkCounter this[string nicName]
       {
         get { return GetCounterByName(nicName); }
       }
 
+
       //NetworkCounter
       public NetworkMonitor()
       {
         var table = CounterFactory.GetInstanceTable(CategoryList.Network);
 
+        NetworkList = new List<NetworkCounter>();
         foreach (string insName in table)
           NetworkList.Add(new NetworkCounter(insName));
       }
@@ -311,19 +375,34 @@ namespace SystemIdleMonitor
       }
 
 
-      //Receive
+
+      /// <summary>
+      /// 全ネットワークカードの受信速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>受信速度</returns>
       public float Receive(bitPerSec bitpersec)
       {
         return NetworkList.Select((counter) => counter.Receive(bitpersec)).Sum();
       }
 
-      //Sent
+
+      /// <summary>
+      /// 全ネットワークカードの送信速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>送信速度</returns>
       public float Sent(bitPerSec bitpersec)
       {
         return NetworkList.Select((counter) => counter.Sent(bitpersec)).Sum();
       }
 
-      //Transfer
+
+      /// <summary>
+      /// 全ネットワークカードの転送速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>転送速度</returns>
       public float Transfer(bitPerSec bitpersec)
       {
         return NetworkList.Select((counter) => counter.Transfer(bitpersec)).Sum();
@@ -332,12 +411,16 @@ namespace SystemIdleMonitor
 
 
 
+
+
+    /// <summary>
+    /// ネットワークカード単体の転送速度を取得する。
+    /// </summary>
     public class NetworkCounter
     {
       private string name;
       public PerformanceCounter receiveCounter, sentCounter, transferCounter;
       public string InsName { get { return name; } }
-
 
       public NetworkCounter(string insName)
       {
@@ -352,7 +435,12 @@ namespace SystemIdleMonitor
       }
 
 
-      //Receive
+
+      /// <summary>
+      /// ネットワークカード単体の受信速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>受信速度</returns>
       public float Receive(bitPerSec bitpersec)
       {
         // Byte/secをbpsに変換するために * 8
@@ -360,14 +448,24 @@ namespace SystemIdleMonitor
         catch { return 0; }
       }
 
-      //Sent
+
+      /// <summary>
+      /// ネットワークカード単体の送信速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>送信速度</returns>
       public float Sent(bitPerSec bitpersec)
       {
         try { return Prefixing.Convert(sentCounter.NextValue() * 8, (SIPrefix)bitpersec); }
         catch { return 0; }
       }
 
-      //Transfer
+
+      /// <summary>
+      /// ネットワークカード単体の転送速度を取得
+      /// </summary>
+      /// <param name="prefix">単位を指定</param>
+      /// <returns>転送速度</returns>
       public float Transfer(bitPerSec bitpersec)
       {
         try { return Prefixing.Convert(transferCounter.NextValue() * 8, (SIPrefix)bitpersec); }
@@ -383,6 +481,12 @@ namespace SystemIdleMonitor
 
 
 
+
+
+
+
+
+
   #region Prefix
   enum Byte { B = 0, KiB = 1, MiB = 2, }
   enum bit { b = 0, Kib = 1, Mib = 2, }
@@ -392,7 +496,12 @@ namespace SystemIdleMonitor
 
   static class Prefixing
   {
-    //値をSIPrefixで丸める 
+    /// <summary>
+    /// 指定のPrefixで丸める
+    /// </summary>
+    /// <param name="value">対象の値</param>
+    /// <param name="prefix">Prefix値で丸められる</param>
+    /// <returns></returns>
     public static float Convert(float value, SIPrefix prefix)
     {
       for (int i = 0; i < (int)prefix; i++)
@@ -400,7 +509,13 @@ namespace SystemIdleMonitor
       return value;
     }
 
-    // SIPrefixを自動判断
+
+    /// <summary>
+    /// Prefixで丸める
+    /// </summary>
+    /// <param name="value">対象の値</param>
+    /// <param name="prefix">使用されたPrefix値</param>
+    /// <returns></returns>
     static float AutoOptimizePrefix(float value, out SIPrefix prefix)
     {
       int iprefix;
