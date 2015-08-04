@@ -3,35 +3,32 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Collections;
 
 namespace SystemIdleMonitor
 {
-
-
-
   #region smQueue
+
   /*
    * ログ表示用のLatestValueの取得といくつかのプロパティが欲しいのでclass smQueueを作成。
    * Que[Que.Count-1]で値を取得できないのでLatestValueに毎回記録する。
    */
-  class smQueue
+
+  internal class smQueue
   {
     private Queue<float> Que;
     public bool Enable;
     public float Threshold { get; private set; }
     public int Capacity { get; private set; }
 
-
-    readonly object sync = new object();
+    private readonly object sync = new object();
     public int Count { get { return Que.Count; } }
     public bool HasValue { get { return 0 < Que.Count; } }
     public bool IsFilled { get { return Capacity <= Que.Count; } }
     public float Average { get { lock (sync) { return (Enable && HasValue) ? Que.Average() : 0; } } }
 
-
     //Que最後尾の値
     private float latestValue;
+
     public float LatestValue
     {
       get { lock (sync) { return (Enable && HasValue) ? latestValue : 0; } }
@@ -48,7 +45,6 @@ namespace SystemIdleMonitor
       if (Enable) Que = new Queue<float>(newCapacity);
     }
 
-
     /// <summary>
     ///  Reset
     /// </summary>
@@ -61,7 +57,6 @@ namespace SystemIdleMonitor
         Que = new Queue<float>(Capacity);
       }
     }
-
 
     /// <summary>
     ///  Enqueue
@@ -77,7 +72,6 @@ namespace SystemIdleMonitor
       }
     }
 
-
     /// <summary>
     ///  Dequeue
     /// </summary>
@@ -90,8 +84,6 @@ namespace SystemIdleMonitor
         if (HasValue == false) LatestValue = 0;
       }
     }
-
-
 
     /// <summary>
     ///  IsUnderThreshold
@@ -110,27 +102,20 @@ namespace SystemIdleMonitor
         }
       }
     }
-
   }
-  #endregion
 
-
-
-
-
-
-
+  #endregion smQueue
 
   #region SystemMonitor
-  class SystemMonitor
+
+  internal class SystemMonitor
   {
-    SystemCounter systemCounter;
-    smQueue queCpu, queHDD, queNetwork;
+    private SystemCounter systemCounter;
+    private smQueue queCpu, queHDD, queNetwork;
 
-    readonly object sync = new object();
-    Timer MonitoringTimer;
-    bool TimerIsWorking;
-
+    private readonly object sync = new object();
+    private Timer MonitoringTimer;
+    private bool TimerIsWorking;
 
     //Constructor
     public SystemMonitor(float thd_cpu, float thd_hdd, float thd_net, int duration_sec)
@@ -151,8 +136,6 @@ namespace SystemIdleMonitor
       }
     }
 
-
-
     /// <summary>
     /// TimerStart
     /// </summary>
@@ -160,13 +143,10 @@ namespace SystemIdleMonitor
     {
       lock (sync)
       {
-
         MonitoringTimer.Change(0, 1000);         //１秒間隔で処理
         TimerIsWorking = true;
       }
     }
-
-
 
     /// <summary>
     /// TimerStop
@@ -185,8 +165,6 @@ namespace SystemIdleMonitor
       }
     }
 
-
-
     /// <summary>
     /// timer_Tick
     /// </summary>
@@ -200,7 +178,6 @@ namespace SystemIdleMonitor
         if (queNetwork.Enable) queNetwork.Enqueue(systemCounter.Network.Transfer(bitPerSec.Mibps));
       }
     }
-
 
     /// <summary>
     /// SystemIsIdle
@@ -216,8 +193,6 @@ namespace SystemIdleMonitor
       }
     }
 
-
-
     /// <summary>
     /// 画面表示用のテキスト作成
     /// </summary>
@@ -231,7 +206,6 @@ namespace SystemIdleMonitor
 
         var state = new StringBuilder();
         state.AppendLine("               CPU         HDD          Network");
-
 
         //Threshold
         line = "";
@@ -273,8 +247,6 @@ namespace SystemIdleMonitor
       }
     }
   }
-  #endregion
 
-
-
+  #endregion SystemMonitor
 }

@@ -1,43 +1,32 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Diagnostics;
-using Microsoft.Win32;
-using System.IO;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-
-#region region_title
-#endregion
-
 
 namespace SystemIdleMonitor
 {
-
   /// <summary>
   /// 閾値のデフォルト値
   /// </summary>
-  static class DefValue
+  internal static class DefValue
   {
     public const float
-      //         %              MiB/sec             Mbps            sec           sec  
+      //         %              MiB/sec             Mbps            sec           sec
       CpuThd = 60f, HddThd = 30.0f, NetworkThd = -1.0f, Durarion = 20, Timeout = 30;
   }
 
-
-  class Program
+  internal class Program
   {
-    static SystemMonitor systemMonitor;
-    static readonly object sync = new object();
-    static float duration, timeout;
-    static DateTime startTime, lastResumeTime;
-    static bool HaveConsole;
-    static bool SystemIsSleep;
+    private static SystemMonitor systemMonitor;
+    private static readonly object sync = new object();
+    private static float duration, timeout;
+    private static DateTime startTime, lastResumeTime;
+    private static bool HaveConsole;
+    private static bool SystemIsSleep;
 
-
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
       //テスト引数
       //var testArgs = new List<string>();
@@ -48,13 +37,10 @@ namespace SystemIdleMonitor
       //testArgs.AddRange(new string[] { "-timeout", "30" });        //sec
       //args = testArgs.ToArray();
 
-
       //Initialize
       AppDomain.CurrentDomain.UnhandledException += ExceptionInfo.OnUnhandledException;  //例外を捕捉する
 
-
       SystemEvents.PowerModeChanged += OnPowerModeChanged;                               //suspend検知
-
 
       //コンソールウィンドウを持っているか？
       HaveConsole = true;
@@ -68,10 +54,8 @@ namespace SystemIdleMonitor
         HaveConsole = false;
       }
 
-
-
       //CommandLine
-      CommandLine.SetThdValue(new float[] { DefValue.CpuThd, DefValue.HddThd, DefValue.NetworkThd, 
+      CommandLine.SetThdValue(new float[] { DefValue.CpuThd, DefValue.HddThd, DefValue.NetworkThd,
                                              DefValue.Durarion, DefValue.Timeout });
       //実行ファイルの引数
       CommandLine.Parse(args);
@@ -95,9 +79,6 @@ namespace SystemIdleMonitor
 
       CommandLine.Parse(textArgs);
 
-
-
-
       //duration
       duration = CommandLine.Duration;
       timeout = CommandLine.Timeout;
@@ -106,16 +87,13 @@ namespace SystemIdleMonitor
         Exit_withIdle();               //終了
       }
 
-      //SystemMonitor   
-      //  PerformanceCounterの作成は初回のみ数秒かかる。ＣＰＵ負荷も高い。     
+      //SystemMonitor
+      //  PerformanceCounterの作成は初回のみ数秒かかる。ＣＰＵ負荷も高い。
       systemMonitor = new SystemMonitor(CommandLine.CpuThd,
                                         CommandLine.HddThd,
                                         CommandLine.NetThd,
                                         (int)duration);
       systemMonitor.TimerStart();
-
-
-
 
       //
       //main loop
@@ -134,7 +112,6 @@ namespace SystemIdleMonitor
             Console.Error.WriteLine(text);
           }
 
-
           //timeout?                  timeout = -1 なら無期限待機
           if (SystemIsSleep == false
                  && 0 < timeout
@@ -143,7 +120,6 @@ namespace SystemIdleMonitor
           {
             Exit_timeout();            //終了
           }
-
 
           //SystemIsIdle?
           if (SystemIsSleep == false
@@ -156,19 +132,14 @@ namespace SystemIdleMonitor
         }
 
         Thread.Sleep(1 * 1000);
-
       }//while
     }//func
-
-
-
-
 
     /// <summary>
     /// 画面表示用のテキスト取得
     /// </summary>
     /// <returns></returns>
-    static string GetText_MonitoringState()
+    private static string GetText_MonitoringState()
     {
       var state = new StringBuilder();
       var black = (CheckProcess.NotExistBlack()) ? "○" : "×";
@@ -181,14 +152,10 @@ namespace SystemIdleMonitor
       return state.ToString();
     }
 
-
-
-
-
     /// <summary>
     /// 終了処理　タイムアウト
     /// </summary>
-    static void Exit_timeout()
+    private static void Exit_timeout()
     {
       if (HaveConsole) Console.Clear();
       Console.WriteLine("false");
@@ -202,7 +169,7 @@ namespace SystemIdleMonitor
     /// <summary>
     /// 終了処理　アイドル
     /// </summary>
-    static void Exit_withIdle()
+    private static void Exit_withIdle()
     {
       if (HaveConsole) Console.Clear();
       Console.Write("true");
@@ -212,22 +179,18 @@ namespace SystemIdleMonitor
       Environment.Exit(0);             //ExitCode: 0
     }
 
-
-
-
-
     #region コマンドライン
+
     /// <summary>
     /// コマンドライン
     /// </summary>
-    static class CommandLine
+    private static class CommandLine
     {
       public static float CpuThd { get; private set; }
       public static float HddThd { get; private set; }
       public static float NetThd { get; private set; }
       public static float Duration { get; private set; }
       public static float Timeout { get; private set; }
-
 
       /// <summary>
       /// 指定した値でThdを設定する。
@@ -241,7 +204,6 @@ namespace SystemIdleMonitor
         Duration = defvalue[3];
         Timeout = defvalue[4];
       }
-
 
       /// <summary>
       /// コマンドライン解析
@@ -259,18 +221,15 @@ namespace SystemIdleMonitor
           sValue = (i + 1 < args.Count()) ? args[i + 1] : "";
           canParse = float.TryParse(sValue, out fValue);
 
-
           //  - / をはずす
           if (key.IndexOf("-") == 0 || key.IndexOf("/") == 0)
             key = key.Substring(1, key.Length - 1);
           else
             continue;
 
-
           //小文字で比較
           switch (key)
           {
-
             case "cpu":
             case "cputhd":
               if (canParse) CpuThd = fValue;
@@ -296,16 +255,13 @@ namespace SystemIdleMonitor
               break;
           }
         }
-
       }//function
     }//class
-    #endregion
 
-
-
-
+    #endregion コマンドライン
 
     #region PowerModeChangedEvent
+
     /// <summary>
     /// PowerModeChangedEvent
     /// </summary>
@@ -317,7 +273,7 @@ namespace SystemIdleMonitor
     ///                          [windows sleep]  →  PowerModes.Resume   →  PowerModes.Suspend
     ///  の順でイベントが処理されることもある。
     /// </remarks>
-    static void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    private static void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
       lock (sync)
       {
@@ -343,10 +299,7 @@ namespace SystemIdleMonitor
         }
       }
     }
-    #endregion
 
+    #endregion PowerModeChangedEvent
   }
-
-
-
 }

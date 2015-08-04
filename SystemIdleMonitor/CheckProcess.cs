@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.IO;
-using System.Reflection;
 using System.Diagnostics;
-using System.Threading;
+using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SystemIdleMonitor
@@ -13,10 +10,9 @@ namespace SystemIdleMonitor
   /// <summary>
   /// 特定のプロセスが動いているかチェックする。
   /// </summary>
-  static class CheckProcess
+  internal static class CheckProcess
   {
     public static List<string> ProcessList { get; private set; }
-
 
     static CheckProcess()
     {
@@ -32,12 +28,9 @@ namespace SystemIdleMonitor
           return Path.Combine(AppDir, AppName + ".txt");
         })();
 
-
       //読込み
       if (File.Exists(txtpath) == false) return;
       var textList = File.ReadAllLines(txtpath).ToList();
-
-
 
       //ProcessList作成、登録
       ProcessList = textList;
@@ -62,10 +55,7 @@ namespace SystemIdleMonitor
        .Where((line) => string.IsNullOrWhiteSpace(line) == false)    //空白行削除
        .Distinct()                                                   //重複削除
        .ToList();
-
     }
-
-
 
     /// <summary>
     /// 特定のプロセスが稼動していない？
@@ -83,7 +73,6 @@ namespace SystemIdleMonitor
           {
             var hitBlack = Regex.IsMatch(prc.ProcessName, "^" + pattern + "$", RegexOptions.IgnoreCase);
             if (hitBlack) return false;          //特定のプロセスが稼動中
-
           }
           catch
           {
@@ -94,8 +83,5 @@ namespace SystemIdleMonitor
 
       return true;                               //特定のプロセスが稼動していない
     }
-
-
-
   }
 }

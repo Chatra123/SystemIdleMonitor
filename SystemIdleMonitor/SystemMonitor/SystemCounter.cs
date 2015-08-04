@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;  // for PerformanceCounter
-using System.Linq;
-using System.Text;
 using System.IO;
+using System.Linq;
 
 namespace SystemIdleMonitor
 {
-
   #region CounterFactory
+
   public enum CounterList
   {
     Processor,
@@ -20,22 +19,18 @@ namespace SystemIdleMonitor
     Network_Transfer,
   }
 
-
   public static class CategoryList
   {
     public const string Processor = "Processor", HDD = "PhysicalDisk", Network = "Network Interface";
   }
-
 
   public static class InstanceList
   {
     public const string Total = "_Total";
   }
 
-
-  static class CounterFactory
+  internal static class CounterFactory
   {
-
     /// <summary>
     /// PerformanceCounterを作成する
     /// </summary>
@@ -54,15 +49,12 @@ namespace SystemIdleMonitor
       return new PerformanceCounter(nameset[0], nameset[1], insName);
     }
 
-
-
-    static string[] GetCounterNameSet(CounterList counter)
+    private static string[] GetCounterNameSet(CounterList counter)
     {
       string[] nameset = null;
 
       switch (counter)
       {
-
         case CounterList.Processor:
           nameset = new string[] { "Processor", "% Processor Time", "_Total" };
           break;
@@ -98,25 +90,16 @@ namespace SystemIdleMonitor
       return nameset;
     }
 
-
     public static List<string> GetInstanceTable(string categoryName)
     {
       return new PerformanceCounterCategory(categoryName).GetInstanceNames().ToList();
     }
-
   }
-  #endregion
 
+  #endregion CounterFactory
 
-
-
-
-
-
-
-  class SystemCounter
+  internal class SystemCounter
   {
-
     /// <summary>
     /// PerformanceCounterの作成をバックグラウンドで処理しておく。
     /// </summary>
@@ -132,7 +115,6 @@ namespace SystemIdleMonitor
           }), null);
     }
 
-
     public ProcessorMonitor Processor;
     public HddMonitor HDD;
     public NetworkMonitor Network;
@@ -145,11 +127,8 @@ namespace SystemIdleMonitor
       Network = new NetworkMonitor();
     }
 
-
-
-
-
     #region Processor
+
     /// <summary>
     /// ＣＰＵ使用率を取得する。
     /// </summary>
@@ -169,14 +148,11 @@ namespace SystemIdleMonitor
         catch { return 0; }
       }
     }
-    #endregion
 
-
-
-
-
+    #endregion Processor
 
     #region HDD
+
     /// <summary>
     /// ＨＤＤの転送量を取得する。
     /// </summary>
@@ -184,7 +160,6 @@ namespace SystemIdleMonitor
     {
       public List<HDDCounter> HDDList;
       public HDDCounter HDDTotal;
-
 
       public HDDCounter this[string driveLetter]
       {
@@ -203,7 +178,7 @@ namespace SystemIdleMonitor
             HDDList.Add(new HDDCounter(insName));          //_Totalでないなら追加
       }
 
-      HDDCounter GetCounterByName(string driveName)
+      private HDDCounter GetCounterByName(string driveName)
       {
         driveName = driveName.ToLower();
         if (driveName.Contains("total")) return HDDTotal;
@@ -229,8 +204,6 @@ namespace SystemIdleMonitor
         return fixedDrives;
       }
 
-
-
       /// <summary>
       /// 全ＨＤＤの読込み速度を取得
       /// </summary>
@@ -240,7 +213,6 @@ namespace SystemIdleMonitor
       {
         return HDDTotal.Read(prefix);
       }
-
 
       /// <summary>
       /// 全ＨＤＤの書込み速度を取得
@@ -252,7 +224,6 @@ namespace SystemIdleMonitor
         return HDDTotal.Write(prefix);
       }
 
-
       /// <summary>
       /// 全ＨＤＤの転送速度を取得
       /// </summary>
@@ -263,10 +234,6 @@ namespace SystemIdleMonitor
         return HDDTotal.Transfer(prefix);
       }
     }
-
-
-
-
 
     /// <summary>
     /// ドライブ単体の転送速度を取得する。
@@ -290,7 +257,6 @@ namespace SystemIdleMonitor
 
       public string InsName { get { return name; } }
 
-
       /// <summary>
       /// ドライブ単体の読込み速度を取得
       /// </summary>
@@ -301,7 +267,6 @@ namespace SystemIdleMonitor
         try { return Prefixing.Convert(readCounter.NextValue(), (SIPrefix)prefix); }
         catch { return 0; }
       }
-
 
       /// <summary>
       /// ドライブ単体の書込み速度を取得
@@ -314,7 +279,6 @@ namespace SystemIdleMonitor
         catch { return 0; }
       }
 
-
       /// <summary>
       /// ドライブ単体の転送速度を取得
       /// </summary>
@@ -325,16 +289,12 @@ namespace SystemIdleMonitor
         try { return Prefixing.Convert(transferCounter.NextValue(), (SIPrefix)prefix); }
         catch { return 0; }
       }
-
     }
-    #endregion
 
-
-
-
-
+    #endregion HDD
 
     #region Network
+
     /// <summary>
     /// ネットワークの転送速度を取得
     /// </summary>
@@ -347,7 +307,6 @@ namespace SystemIdleMonitor
         get { return GetCounterByName(nicName); }
       }
 
-
       //NetworkCounter
       public NetworkMonitor()
       {
@@ -358,7 +317,7 @@ namespace SystemIdleMonitor
           NetworkList.Add(new NetworkCounter(insName));
       }
 
-      NetworkCounter GetCounterByName(string tgtName)
+      private NetworkCounter GetCounterByName(string tgtName)
       {
         foreach (NetworkCounter counter in NetworkList)
           if (counter.InsName.ToLower().Contains(tgtName.ToLower()))
@@ -374,8 +333,6 @@ namespace SystemIdleMonitor
         return namelist_Nic;
       }
 
-
-
       /// <summary>
       /// 全ネットワークカードの受信速度を取得
       /// </summary>
@@ -385,7 +342,6 @@ namespace SystemIdleMonitor
       {
         return NetworkList.Select((counter) => counter.Receive(bitpersec)).Sum();
       }
-
 
       /// <summary>
       /// 全ネットワークカードの送信速度を取得
@@ -397,7 +353,6 @@ namespace SystemIdleMonitor
         return NetworkList.Select((counter) => counter.Sent(bitpersec)).Sum();
       }
 
-
       /// <summary>
       /// 全ネットワークカードの転送速度を取得
       /// </summary>
@@ -408,10 +363,6 @@ namespace SystemIdleMonitor
         return NetworkList.Select((counter) => counter.Transfer(bitpersec)).Sum();
       }
     }
-
-
-
-
 
     /// <summary>
     /// ネットワークカード単体の転送速度を取得する。
@@ -434,8 +385,6 @@ namespace SystemIdleMonitor
         Transfer(bitPerSec.bps);
       }
 
-
-
       /// <summary>
       /// ネットワークカード単体の受信速度を取得
       /// </summary>
@@ -448,7 +397,6 @@ namespace SystemIdleMonitor
         catch { return 0; }
       }
 
-
       /// <summary>
       /// ネットワークカード単体の送信速度を取得
       /// </summary>
@@ -460,7 +408,6 @@ namespace SystemIdleMonitor
         catch { return 0; }
       }
 
-
       /// <summary>
       /// ネットワークカード単体の転送速度を取得
       /// </summary>
@@ -471,30 +418,24 @@ namespace SystemIdleMonitor
         try { return Prefixing.Convert(transferCounter.NextValue() * 8, (SIPrefix)bitpersec); }
         catch { return 0; }
       }
-
-
     }
-    #endregion
 
-
+    #endregion Network
   }
 
-
-
-
-
-
-
-
-
   #region Prefix
-  enum Byte { B = 0, KiB = 1, MiB = 2, }
-  enum bit { b = 0, Kib = 1, Mib = 2, }
-  enum BytePerSec { Bps = 0, KiBps = 1, MiBps = 2, }
-  enum bitPerSec { bps = 0, Kibps = 1, Mibps = 2, }
-  enum SIPrefix { none = 0, K = 1, M = 2, }
 
-  static class Prefixing
+  internal enum Byte { B = 0, KiB = 1, MiB = 2, }
+
+  internal enum bit { b = 0, Kib = 1, Mib = 2, }
+
+  internal enum BytePerSec { Bps = 0, KiBps = 1, MiBps = 2, }
+
+  internal enum bitPerSec { bps = 0, Kibps = 1, Mibps = 2, }
+
+  internal enum SIPrefix { none = 0, K = 1, M = 2, }
+
+  internal static class Prefixing
   {
     /// <summary>
     /// 指定のPrefixで丸める
@@ -509,14 +450,13 @@ namespace SystemIdleMonitor
       return value;
     }
 
-
     /// <summary>
     /// Prefixで丸める
     /// </summary>
     /// <param name="value">対象の値</param>
     /// <param name="prefix">使用されたPrefix値</param>
     /// <returns></returns>
-    static float AutoOptimizePrefix(float value, out SIPrefix prefix)
+    private static float AutoOptimizePrefix(float value, out SIPrefix prefix)
     {
       int iprefix;
       for (iprefix = 0; iprefix < 2; iprefix++)
@@ -528,8 +468,6 @@ namespace SystemIdleMonitor
       return value;
     }
   }
-  #endregion
 
-
-
+  #endregion Prefix
 }
