@@ -173,9 +173,14 @@ namespace SystemIdleMonitor
       lock (sync)
       {
         //値を取得する前にEnableでフィルター
-        if (queCpu.Enable) queCpu.Enqueue(systemCounter.Processor.Usage());
-        if (queHDD.Enable) queHDD.Enqueue(systemCounter.HDD.Transfer(BytePerSec.MiBps));
-        if (queNetwork.Enable) queNetwork.Enqueue(systemCounter.Network.Transfer(bitPerSec.Mibps));
+        if (queCpu.Enable)
+          queCpu.Enqueue(systemCounter.Processor.Usage());
+
+        if (queHDD.Enable)
+          queHDD.Enqueue(systemCounter.HDD.Transfer(BytePerSec.MiBps));
+
+        if (queNetwork.Enable)
+          queNetwork.Enqueue(systemCounter.Network.Transfer(bitPerSec.Mibps));
       }
     }
 

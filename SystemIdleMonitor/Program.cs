@@ -26,7 +26,7 @@ namespace SystemIdleMonitor
     private static bool HaveConsole;
     private static bool SystemIsSleep;
 
-    private static void Main(string[] args)
+    private static void Main(string[] appArgs)
     {
       //テスト引数
       //var testArgs = new List<string>();
@@ -43,10 +43,10 @@ namespace SystemIdleMonitor
       SystemEvents.PowerModeChanged += OnPowerModeChanged;                               //suspend検知
 
       //コンソールウィンドウを持っているか？
-      HaveConsole = true;
       try
       {
         Console.Clear();
+        HaveConsole = true;
       }
       catch
       {
@@ -55,21 +55,21 @@ namespace SystemIdleMonitor
       }
 
       //CommandLine
+      //初期値
       CommandLine.SetThdValue(new float[] { DefValue.CpuThd, DefValue.HddThd, DefValue.NetworkThd,
                                              DefValue.Durarion, DefValue.Timeout });
-      //実行ファイルの引数
-      CommandLine.Parse(args);
 
       //テキストファイルから引数取得
       var textArgs = new Func<List<string>, string[]>(
-        (baseList) =>
+        (list) =>
         {
           //string "-cpu 30"をスペースで分割してList<string>に変換。
           //List<string>  →  List<List<string>>
-          var L1 = baseList.Select(line =>
+          var L1 = list.Select(line =>
           {
             return line.Split(new char[] { ' ', '　', '\t' }).ToList();
           });
+
           //List<List<string>>  →  List<string>
           var L2 = L1.SelectMany(element => element)
                      .Where((line) => string.IsNullOrWhiteSpace(line) == false);         //空白行削除
@@ -77,7 +77,11 @@ namespace SystemIdleMonitor
           return L2.ToArray();
         })(CheckProcess.ProcessList);
 
+      //テキストファイルの引数
       CommandLine.Parse(textArgs);
+
+      //実行ファイルの引数
+      CommandLine.Parse(appArgs);
 
       //duration
       duration = CommandLine.Duration;
@@ -138,7 +142,6 @@ namespace SystemIdleMonitor
     /// <summary>
     /// 画面表示用のテキスト取得
     /// </summary>
-    /// <returns></returns>
     private static string GetText_MonitoringState()
     {
       var state = new StringBuilder();
@@ -193,9 +196,8 @@ namespace SystemIdleMonitor
       public static float Timeout { get; private set; }
 
       /// <summary>
-      /// 指定した値でThdを設定する。
+      /// Thdの初期値を設定する。
       /// </summary>
-      /// <param name="defvalue">指定値</param>
       public static void SetThdValue(float[] defvalue)
       {
         CpuThd = defvalue[0];
@@ -208,7 +210,6 @@ namespace SystemIdleMonitor
       /// <summary>
       /// コマンドライン解析
       /// </summary>
-      /// <param name="args"></param>
       public static void Parse(string[] args)
       {
         for (int i = 0; i < args.Count(); i++)
@@ -265,8 +266,6 @@ namespace SystemIdleMonitor
     /// <summary>
     /// PowerModeChangedEvent
     /// </summary>
-    /// <param name="sender"></param>
-    /// <param name="e"></param>
     /// <remarks>
     ///  PowerModes.Suspend  →  [windows sleep]  →  PowerModes.Resumeの順で発生するとはかぎらない。
     ///                          [windows sleep]  →  PowerModes.Suspend  →  PowerModes.Resume 又は
@@ -290,7 +289,7 @@ namespace SystemIdleMonitor
           SystemIsSleep = true;
           systemMonitor.TimerStop();
 
-          Thread.Sleep(10 * 1000);                         //リジューム直後は処理しない
+          Thread.Sleep(12 * 1000);                         //リジューム直後は処理しない
 
           startTime = DateTime.Now;
           lastResumeTime = DateTime.Now;
