@@ -59,26 +59,8 @@ namespace SystemIdleMonitor
       CommandLine.SetThdValue(new float[] { DefValue.CpuThd, DefValue.HddThd, DefValue.NetworkThd,
                                              DefValue.Durarion, DefValue.Timeout });
 
-      //テキストファイルから引数取得
-      var textArgs = new Func<List<string>, string[]>(
-        (list) =>
-        {
-          //string "-cpu 30"をスペースで分割してList<string>に変換。
-          //List<string>  →  List<List<string>>
-          var L1 = list.Select(line =>
-          {
-            return line.Split(new char[] { ' ', '　', '\t' }).ToList();
-          });
-
-          //List<List<string>>  →  List<string>
-          var L2 = L1.SelectMany(element => element)
-                     .Where((line) => string.IsNullOrWhiteSpace(line) == false);         //空白行削除
-
-          return L2.ToArray();
-        })(CheckProcess.ProcessList);
-
-      //テキストファイルの引数
-      CommandLine.Parse(textArgs);
+      //テキストファイルからの引数
+      CommandLine.Parse(Setting.TextArgs);
 
       //実行ファイルの引数
       CommandLine.Parse(appArgs);
