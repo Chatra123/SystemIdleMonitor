@@ -10,21 +10,20 @@ namespace SystemIdleMonitor
   /// <summary>
   /// 閾値のデフォルト値
   /// </summary>
-  internal static class DefValue
+  internal static class DefThreshold
   {
     public const float
-      //         %              MiB/sec             Mbps            sec           sec
+      //         %              MiB/sec             Mbps             sec           sec
       CpuThd = 60f, HddThd = 30.0f, NetworkThd = -1.0f, Durarion = 20, Timeout = 30;
   }
 
   internal class Program
   {
-    private static SystemMonitor systemMonitor;
     private static readonly object sync = new object();
-    private static float duration, timeout;
-    private static DateTime startTime, lastResumeTime;
-    private static bool HaveConsole;
-    private static bool SystemIsSleep;
+    private static SystemMonitor systemMonitor;
+    private static float duration, timeout;                 //計測期間、タイムアウト時間
+    private static bool HaveConsole;                        //コンソールを持っているか？
+
 
     private static void Main(string[] appArgs)
     {
@@ -40,7 +39,7 @@ namespace SystemIdleMonitor
       //Initialize
       AppDomain.CurrentDomain.UnhandledException += ExceptionInfo.OnUnhandledException;  //例外を捕捉する
 
-      SystemEvents.PowerModeChanged += OnPowerModeChanged;                               //suspend検知
+      SystemEvents.PowerModeChanged += OnPowerModeChanged;                               //Windows Sleep検知
 
       //コンソールウィンドウを持っているか？
       try
@@ -56,8 +55,8 @@ namespace SystemIdleMonitor
 
       //CommandLine
       //初期値
-      CommandLine.SetThdValue(new float[] { DefValue.CpuThd, DefValue.HddThd, DefValue.NetworkThd,
-                                             DefValue.Durarion, DefValue.Timeout });
+      CommandLine.SetDefault(new float[] { DefThreshold.CpuThd, DefThreshold.HddThd, DefThreshold.NetworkThd,
+                                             DefThreshold.Durarion, DefThreshold.Timeout });
 
       //テキストファイルからの引数
       CommandLine.Parse(Setting.TextArgs);
@@ -70,8 +69,16 @@ namespace SystemIdleMonitor
       timeout = CommandLine.Timeout;
       if (duration <= 0)
       {
-        Exit_withIdle();               //終了
+        Exit_withIdle(false);          //終了  duration <= 0 
       }
+
+      //ブラックプロセスをチェック
+      //systemMonitor作成前に１度チェック。
+      if (CheckProcess.NotExistBlack() == false)
+      {
+        Exit_withIdle(false);          //終了　ブラックプロセス
+      }
+
 
       //SystemMonitor
       //  PerformanceCounterの作成は初回のみ数秒かかる。ＣＰＵ負荷も高い。
@@ -85,7 +92,7 @@ namespace SystemIdleMonitor
       //main loop
       //
       Thread.Sleep(500);              //systemMonitorと更新タイミングをずらす
-      startTime = DateTime.Now;
+      var startTime = DateTime.Now;
       while (true)
       {
         lock (sync)
@@ -98,27 +105,28 @@ namespace SystemIdleMonitor
             Console.Error.WriteLine(text);
           }
 
-          //timeout?                  timeout = -1 なら無期限待機
-          if (SystemIsSleep == false
-                 && 0 < timeout
-                 && timeout < (DateTime.Now - startTime).TotalSeconds
+          //timeout? 
+          //timeout = -1 なら無期限待機
+          if (0 < timeout
+               && timeout < (DateTime.Now - startTime).TotalSeconds
               )
           {
-            Exit_timeout();            //終了
+            Exit_withIdle(false);      //終了 タイムアウト
           }
 
           //SystemIsIdle?
-          if (SystemIsSleep == false
-                 && systemMonitor.SystemIsIdle()
-                 && CheckProcess.NotExistBlack()
+          if (systemMonitor.SystemIsIdle()
+              && CheckProcess.NotExistBlack()
               )
           {
-            Exit_withIdle();           //終了
+            Exit_withIdle(true);       //終了 アイドル
           }
         }
 
         Thread.Sleep(1 * 1000);
+
       }//while
+
     }//func
 
     /// <summary>
@@ -126,43 +134,40 @@ namespace SystemIdleMonitor
     /// </summary>
     private static string GetText_MonitoringState()
     {
-      var state = new StringBuilder();
+      var text = new StringBuilder();
+
+      var system = (systemMonitor != null) ? systemMonitor.MonitoringState() : "";
+
       var black = (CheckProcess.NotExistBlack()) ? "○" : "×";
-      var idle = (systemMonitor.SystemIsIdle()) ? "○" : "×";
 
-      state.AppendLine("duration = " + duration + "    timeout = " + timeout);
-      state.AppendLine(systemMonitor.MonitoringState());
-      state.AppendLine("NotExistBlack = " + black);
-      state.AppendLine("SysteIsIdle   = " + idle);
-      return state.ToString();
+      var idle = (systemMonitor != null
+        && systemMonitor.SystemIsIdle()) ? "○" : "×";
+
+      text.AppendLine("duration = " + duration + "    timeout = " + timeout);
+      text.AppendLine(system);
+      text.AppendLine("NotExistBlack = " + black);
+      text.AppendLine("SysteIsIdle   = " + idle);
+
+      return text.ToString();
     }
 
     /// <summary>
-    /// 終了処理　タイムアウト
+    /// 終了処理
     /// </summary>
-    private static void Exit_timeout()
+    private static void Exit_withIdle(bool isIdleExit)
     {
+      string text = isIdleExit ? "true" : "false";
+      int exitcode = isIdleExit ? 0 : 1;
+
       if (HaveConsole) Console.Clear();
-      Console.WriteLine("false");
+      Console.WriteLine(text);
       Console.WriteLine(GetText_MonitoringState());
-      Thread.Sleep(2000);
 
       SystemEvents.PowerModeChanged -= OnPowerModeChanged;
-      Environment.Exit(1);             //ExitCode: 1
-    }
-
-    /// <summary>
-    /// 終了処理　アイドル
-    /// </summary>
-    private static void Exit_withIdle()
-    {
-      if (HaveConsole) Console.Clear();
-      Console.Write("true");
       Thread.Sleep(2000);
-
-      SystemEvents.PowerModeChanged -= OnPowerModeChanged;
-      Environment.Exit(0);             //ExitCode: 0
+      Environment.Exit(exitcode);
     }
+
 
     #region コマンドライン
 
@@ -180,7 +185,7 @@ namespace SystemIdleMonitor
       /// <summary>
       /// Thdの初期値を設定する。
       /// </summary>
-      public static void SetThdValue(float[] defvalue)
+      public static void SetDefault(float[] defvalue)
       {
         CpuThd = defvalue[0];
         HddThd = defvalue[1];
@@ -249,35 +254,21 @@ namespace SystemIdleMonitor
     /// PowerModeChangedEvent
     /// </summary>
     /// <remarks>
-    ///  PowerModes.Suspend  →  [windows sleep]  →  PowerModes.Resumeの順で発生するとはかぎらない。
-    ///                          [windows sleep]  →  PowerModes.Suspend  →  PowerModes.Resume 又は
-    ///                          [windows sleep]  →  PowerModes.Resume   →  PowerModes.Suspend
-    ///  の順でイベントが処理されることもある。
+    /// PowerModes.Suspend  →  [windows sleep]  →  PowerModes.Resumeの順で発生するとはかぎらない。
+    ///                         [windows sleep]  →  PowerModes.Suspend  →  PowerModes.Resume 又は
+    ///                         [windows sleep]  →  PowerModes.Resume   →  PowerModes.Suspend
+    /// の順でイベントが処理されることもある。
+    /// 連続でPowerModes.Resumeだけがくることもあった。
+    ///
+    /// スリープ処理はデバッグしづらいので、
+    /// ”計測の一時停止”から”Exit_withIdle(false)で終了”に処理を変更。
+    /// 
     /// </remarks>
     private static void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
       lock (sync)
       {
-        //Suspend
-        if (e.Mode == PowerModes.Suspend
-          && 10 < (DateTime.Now - lastResumeTime).TotalSeconds)      //前回のリジュームから１０秒たっている？
-        {
-          SystemIsSleep = true;
-          systemMonitor.TimerStop();
-        }
-        //Resume
-        else if (e.Mode == PowerModes.Resume)
-        {
-          SystemIsSleep = true;
-          systemMonitor.TimerStop();
-
-          Thread.Sleep(12 * 1000);                         //リジューム直後は処理しない
-
-          startTime = DateTime.Now;
-          lastResumeTime = DateTime.Now;
-          systemMonitor.TimerStart();
-          SystemIsSleep = false;
-        }
+        Exit_withIdle(false);
       }
     }
 
