@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;  // for PerformanceCounter
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
 namespace SystemIdleMonitor
 {
+
+
   #region CounterFactory
 
   public enum CounterList
   {
     Processor,
+    ProcessCPU,
     HDD_Read,
     HDD_Write,
     HDD_Transfer,
@@ -32,10 +35,8 @@ namespace SystemIdleMonitor
   internal static class CounterFactory
   {
     /// <summary>
-    /// PerformanceCounterを作成する
+    /// PerformanceCounterを作成
     /// </summary>
-    /// <param name="counterName"></param>
-    /// <returns></returns>
     public static PerformanceCounter Create(CounterList counterName)
     {
       string[] nameset = GetCounterNameSet(counterName);
@@ -43,12 +44,18 @@ namespace SystemIdleMonitor
       return new PerformanceCounter(nameset[0], nameset[1], nameset[2]);
     }
 
+    /// <summary>
+    /// PerformanceCounterを作成
+    /// </summary>
     public static PerformanceCounter Create(CounterList counterName, string insName)
     {
       string[] nameset = GetCounterNameSet(counterName);
       return new PerformanceCounter(nameset[0], nameset[1], insName);
     }
 
+    /// <summary>
+    /// CounterListから  categoryName	 counterName  instanceName  を取得
+    /// </summary>
     private static string[] GetCounterNameSet(CounterList counter)
     {
       string[] nameset = null;
@@ -57,6 +64,10 @@ namespace SystemIdleMonitor
       {
         case CounterList.Processor:
           nameset = new string[] { "Processor", "% Processor Time", "_Total" };
+          break;
+
+        case CounterList.ProcessCPU:
+          nameset = new string[] { "Process", "% Processor Time", "" };
           break;
 
         case CounterList.HDD_Read:
@@ -94,12 +105,53 @@ namespace SystemIdleMonitor
     {
       return new PerformanceCounterCategory(categoryName).GetInstanceNames().ToList();
     }
+
+    /// <summary>
+    /// ＰＩＤからプロセスのインスタンス名取得
+    /// 複数のインスタンスがあると  notepad   notepad#1  notepad#2  になる。  
+    /// </summary>
+    public static String GetInstanceName_ById(int pid)
+    {
+      string prcName;
+      try
+      {
+        prcName = Process.GetProcessById(pid).ProcessName;
+      }
+      catch (ArgumentException)  //プロセスが稼動していない。
+      {
+        return null;
+      }
+
+      var category = new PerformanceCounterCategory("Process");
+      if (category.CounterExists("ID Process") == false) return null;
+
+      var inslist = category.GetInstanceNames();
+      inslist = inslist.Where(name => name.Contains(prcName)).ToArray();
+
+      foreach (string instance in inslist)
+      {
+        using (var counter = new PerformanceCounter("Process", "ID Process", instance))
+        {
+          if (pid == counter.RawValue)
+          {
+            return instance;
+          }
+        }
+      }
+
+      return null;
+    }
   }
 
   #endregion CounterFactory
 
+
+
+
   internal class SystemCounter
   {
+
+    #region PreLoad
     /// <summary>
     /// PerformanceCounterの作成をバックグラウンドで処理しておく。
     /// </summary>
@@ -115,31 +167,39 @@ namespace SystemIdleMonitor
           }), null);
     }
 
-    public ProcessorMonitor Processor;
-    public HddMonitor HDD;
-    public NetworkMonitor Network;
+    #endregion
+
+
+    public ProcessorCounter Processor;
+    public ProcessCPUCounter IdleProcess;
+    public HddCounterSet HDD;
+    public NetworkCounterSet Network;
+
 
     //constructor
     public SystemCounter()
     {
-      Processor = new ProcessorMonitor();
-      HDD = new HddMonitor();
-      Network = new NetworkMonitor();
+      Processor = new ProcessorCounter();
+      IdleProcess = new ProcessCPUCounter();
+      IdleProcess.Create(0, "Idle");
+
+      HDD = new HddCounterSet();
+      Network = new NetworkCounterSet();
     }
 
-    #region Processor
 
+    #region Processor
     /// <summary>
     /// ＣＰＵ使用率を取得する。
     /// </summary>
-    public class ProcessorMonitor
+    public class ProcessorCounter
     {
-      public PerformanceCounter Processor;
+      private PerformanceCounter Processor;
 
-      public ProcessorMonitor()
+      public ProcessorCounter()
       {
         Processor = CounterFactory.Create(CounterList.Processor);
-        Processor.NextValue();         //１回目のNextValueは０が返されるのでここで実行する。
+        Usage();             //１回目のNextValueは０が返されるのでここで実行する。
       }
 
       public float Usage()
@@ -149,42 +209,112 @@ namespace SystemIdleMonitor
       }
     }
 
-    #endregion Processor
+    #endregion
+
+
+
+
+
+    #region ProcessCPU
+    /// <summary>
+    /// プロセス単体のＣＰＵ使用率を取得する。
+    /// </summary>
+    public class ProcessCPUCounter
+    {
+      public int Id { get; private set; }                  //PID
+      public string InsName { get; private set; }          //インスタンス名
+      public bool IsAlive { get; private set; }            //プロセスの生存
+
+      private readonly int cpu_count = Environment.ProcessorCount;  //ＣＰＵコア数
+
+      private PerformanceCounter prcCpuCounter;
+
+      /// <summary>
+      /// ＰＩＤからカウンター作成
+      /// </summary>
+      public bool Create(int pid)
+      {
+        string name = CounterFactory.GetInstanceName_ById(pid);
+
+        if (string.IsNullOrEmpty(name) == false)
+        {
+          Create(pid, name);
+        }
+
+        return IsAlive;
+      }
+
+      /// <summary>
+      /// インスタンス名からカウンター作成
+      /// </summary>
+      public bool Create(int pid, string insname)
+      {
+        Id = pid;
+        InsName = insname;
+        IsAlive = true;
+
+        prcCpuCounter = CounterFactory.Create(CounterList.ProcessCPU, InsName);
+        Usage();          //１回目のNextValueは０が返されるのでここで実行する。
+
+        return IsAlive;
+      }
+
+
+      /// <summary>
+      /// ＣＰＵ使用率を取得する。
+      /// </summary>
+      public float Usage()
+      {
+        if (IsAlive == false) return 0;
+
+        try { return prcCpuCounter.NextValue() / cpu_count; }
+        catch { IsAlive = false; return 0; }
+
+      }
+    }
+
+
+
+    #endregion
+
+
+
+
 
     #region HDD
 
     /// <summary>
     /// ＨＤＤの転送量を取得する。
     /// </summary>
-    public class HddMonitor
+    public class HddCounterSet
     {
-      public List<HDDCounter> HDDList;
-      public HDDCounter HDDTotal;
+      public List<HDDCounter> List;
+      public HDDCounter Total;
 
       public HDDCounter this[string driveLetter]
       {
         get { return GetCounterByName(driveLetter); }
       }
 
-      public HddMonitor()
+      public HddCounterSet()
       {
-        HDDTotal = new HDDCounter(InstanceList.Total);
+        Total = new HDDCounter(InstanceList.Total);
 
-        HDDList = new List<HDDCounter>();
+        List = new List<HDDCounter>();
         var table = CounterFactory.GetInstanceTable(CategoryList.HDD);
 
         foreach (var insName in table)
           if (insName.ToLower().Contains(InstanceList.Total.ToLower()) == false)
-            HDDList.Add(new HDDCounter(insName));          //_Totalでないなら追加
+            List.Add(new HDDCounter(insName));          //_Totalでないなら追加
       }
 
       private HDDCounter GetCounterByName(string driveName)
       {
         driveName = driveName.ToLower();
-        if (driveName.Contains("total")) return HDDTotal;
+        if (driveName.Contains("total")) return Total;
 
         driveName = System.Text.RegularExpressions.Regex.Match(driveName, "[A-Za-z]").Value;
-        foreach (HDDCounter hdd in HDDList)
+        foreach (HDDCounter hdd in List)
           if (hdd.InsName.ToLower().Contains(driveName))
             return hdd;
 
@@ -209,9 +339,9 @@ namespace SystemIdleMonitor
       /// </summary>
       /// <param name="prefix">単位を指定</param>
       /// <returns>読込み速度</returns>
-      public float Read(BytePerSec prefix)
+      public float TotalRead(BytePerSec prefix)
       {
-        return HDDTotal.Read(prefix);
+        return Total.Read(prefix);
       }
 
       /// <summary>
@@ -219,9 +349,9 @@ namespace SystemIdleMonitor
       /// </summary>
       /// <param name="prefix">単位を指定</param>
       /// <returns>書込み速度</returns>
-      public float Write(BytePerSec prefix)
+      public float TotalWrite(BytePerSec prefix)
       {
-        return HDDTotal.Write(prefix);
+        return Total.Write(prefix);
       }
 
       /// <summary>
@@ -229,9 +359,9 @@ namespace SystemIdleMonitor
       /// </summary>
       /// <param name="prefix">単位を指定</param>
       /// <returns>転送速度</returns>
-      public float Transfer(BytePerSec prefix)
+      public float TotalTransfer(BytePerSec prefix)
       {
-        return HDDTotal.Transfer(prefix);
+        return Total.Transfer(prefix);
       }
     }
 
@@ -240,12 +370,13 @@ namespace SystemIdleMonitor
     /// </summary>
     public class HDDCounter
     {
-      private string name;             //ＨＤＤのインスタンス名　( _Total, C:\, D:\ )
+      public string InsName { get; private set; }     //ＨＤＤのインスタンス名　( _Total, C:\, D:\ )
+
       public PerformanceCounter readCounter, writeCounter, transferCounter;
 
       public HDDCounter(string insName)
       {
-        name = insName;
+        InsName = insName;
         readCounter = CounterFactory.Create(CounterList.HDD_Read, insName);
         writeCounter = CounterFactory.Create(CounterList.HDD_Write, insName);
         transferCounter = CounterFactory.Create(CounterList.HDD_Transfer, insName);
@@ -255,7 +386,6 @@ namespace SystemIdleMonitor
         Transfer(BytePerSec.Bps);
       }
 
-      public string InsName { get { return name; } }
 
       /// <summary>
       /// ドライブ単体の読込み速度を取得
@@ -293,12 +423,16 @@ namespace SystemIdleMonitor
 
     #endregion HDD
 
+
+
+
+
     #region Network
 
     /// <summary>
     /// ネットワークの転送速度を取得
     /// </summary>
-    public class NetworkMonitor
+    public class NetworkCounterSet
     {
       public List<NetworkCounter> NetworkList;
 
@@ -308,7 +442,7 @@ namespace SystemIdleMonitor
       }
 
       //NetworkCounter
-      public NetworkMonitor()
+      public NetworkCounterSet()
       {
         var table = CounterFactory.GetInstanceTable(CategoryList.Network);
 
@@ -369,13 +503,12 @@ namespace SystemIdleMonitor
     /// </summary>
     public class NetworkCounter
     {
-      private string name;
-      public PerformanceCounter receiveCounter, sentCounter, transferCounter;
-      public string InsName { get { return name; } }
+      public string InsName { get; private set; }
+      private PerformanceCounter receiveCounter, sentCounter, transferCounter;
 
       public NetworkCounter(string insName)
       {
-        name = insName;
+        InsName = insName;
         receiveCounter = CounterFactory.Create(CounterList.Network_Recive, insName);
         sentCounter = CounterFactory.Create(CounterList.Network_Sent, insName);
         transferCounter = CounterFactory.Create(CounterList.Network_Transfer, insName);
@@ -421,7 +554,16 @@ namespace SystemIdleMonitor
     }
 
     #endregion Network
-  }
+
+
+
+
+  }//class
+
+
+
+
+
 
   #region Prefix
 
@@ -470,4 +612,6 @@ namespace SystemIdleMonitor
   }
 
   #endregion Prefix
+
+
 }

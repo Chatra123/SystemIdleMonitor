@@ -1,40 +1,46 @@
-﻿using Microsoft.Win32;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using Microsoft.Win32;  // SystemEvents.PowerModeChanged 
 
 namespace SystemIdleMonitor
 {
+  using OctNov.Excp;
+
   /// <summary>
   /// 閾値のデフォルト値
   /// </summary>
   internal static class DefThreshold
   {
     public const float
-      //         %              MiB/sec             Mbps             sec           sec
-      CpuThd = 60f, HddThd = 30.0f, NetworkThd = -1.0f, Durarion = 20, Timeout = 30;
+      //      %            MiB/sec          Mbps            sec           sec
+      Cpu = 60f, Hdd = 30.0f, Network = -1.0f, Durarion = 20, Timeout = 30;
   }
 
   internal class Program
   {
     private static readonly object sync = new object();
-    private static SystemMonitor systemMonitor;
+    private static SystemIdleMonitor systemMonitor;
+    private static BlackProcessChecker blackChecker;
+
     private static float duration, timeout;                 //計測期間、タイムアウト時間
     private static bool HaveConsole;                        //コンソールを持っているか？
 
 
     private static void Main(string[] appArgs)
     {
-      //テスト引数
+
+      ////テスト引数
       //var testArgs = new List<string>();
       //testArgs.AddRange(new string[] { "-cputhd", "40" });         //%
       //testArgs.AddRange(new string[] { "-hddthd", "6" });          //MiB/sec
       //testArgs.AddRange(new string[] { "-netthd", "10" });         //Mbps
       //testArgs.AddRange(new string[] { "-duration", "20" });       //sec
       //testArgs.AddRange(new string[] { "-timeout", "30" });        //sec
-      //args = testArgs.ToArray();
+      //appArgs = testArgs.ToArray();
+
 
       //Initialize
       AppDomain.CurrentDomain.UnhandledException += ExceptionInfo.OnUnhandledException;  //例外を捕捉する
@@ -55,11 +61,17 @@ namespace SystemIdleMonitor
 
       //CommandLine
       //初期値
-      CommandLine.SetDefault(new float[] { DefThreshold.CpuThd, DefThreshold.HddThd, DefThreshold.NetworkThd,
-                                             DefThreshold.Durarion, DefThreshold.Timeout });
+      CommandLine.SetDefault(new float[] { DefThreshold.Cpu, DefThreshold.Hdd, DefThreshold.Network,
+                                           DefThreshold.Durarion, DefThreshold.Timeout });
 
-      //テキストファイルからの引数
-      CommandLine.Parse(Setting.TextArgs);
+      //
+      //設定ファイル
+      //
+      var setting_file = new Setting_File();
+      setting_file.Load();
+
+      //テキストファイルの引数
+      CommandLine.Parse(setting_file.TextFileArgs);
 
       //実行ファイルの引数
       CommandLine.Parse(appArgs);
@@ -72,21 +84,28 @@ namespace SystemIdleMonitor
         Exit_withIdle(false);          //終了  duration <= 0 
       }
 
-      //ブラックプロセスをチェック
+      //
+      //ブラックプロセス
+      //
+      blackChecker = new BlackProcessChecker(setting_file.ProcessList);
+
       //systemMonitor作成前に１度チェック。
-      if (CheckProcess.NotExistBlack() == false)
+      if (blackChecker.NotExistBlack() == false)
       {
         Exit_withIdle(false);          //終了　ブラックプロセス
       }
 
 
-      //SystemMonitor
+      //
+      //SystemIdleMonitor
+      //
       //  PerformanceCounterの作成は初回のみ数秒かかる。ＣＰＵ負荷も高い。
-      systemMonitor = new SystemMonitor(CommandLine.CpuThd,
-                                        CommandLine.HddThd,
-                                        CommandLine.NetThd,
-                                        (int)duration);
+      systemMonitor = new SystemIdleMonitor(CommandLine.CpuThd,
+                                            CommandLine.HddThd,
+                                            CommandLine.NetThd,
+                                            (int)duration);
       systemMonitor.TimerStart();
+
 
       //
       //main loop
@@ -106,7 +125,7 @@ namespace SystemIdleMonitor
           }
 
           //timeout? 
-          //timeout = -1 なら無期限待機
+          //      timeout = -1 なら無期限待機
           if (0 < timeout
                && timeout < (DateTime.Now - startTime).TotalSeconds
               )
@@ -116,7 +135,7 @@ namespace SystemIdleMonitor
 
           //SystemIsIdle?
           if (systemMonitor.SystemIsIdle()
-              && CheckProcess.NotExistBlack()
+              && blackChecker.NotExistBlack()
               )
           {
             Exit_withIdle(true);       //終了 アイドル
@@ -138,7 +157,7 @@ namespace SystemIdleMonitor
 
       var system = (systemMonitor != null) ? systemMonitor.MonitoringState() : "";
 
-      var black = (CheckProcess.NotExistBlack()) ? "○" : "×";
+      var black = (blackChecker.NotExistBlack()) ? "○" : "×";
 
       var idle = (systemMonitor != null
         && systemMonitor.SystemIsIdle()) ? "○" : "×";
@@ -169,96 +188,17 @@ namespace SystemIdleMonitor
     }
 
 
-    #region コマンドライン
 
-    /// <summary>
-    /// コマンドライン
-    /// </summary>
-    private static class CommandLine
-    {
-      public static float CpuThd { get; private set; }
-      public static float HddThd { get; private set; }
-      public static float NetThd { get; private set; }
-      public static float Duration { get; private set; }
-      public static float Timeout { get; private set; }
-
-      /// <summary>
-      /// Thdの初期値を設定する。
-      /// </summary>
-      public static void SetDefault(float[] defvalue)
-      {
-        CpuThd = defvalue[0];
-        HddThd = defvalue[1];
-        NetThd = defvalue[2];
-        Duration = defvalue[3];
-        Timeout = defvalue[4];
-      }
-
-      /// <summary>
-      /// コマンドライン解析
-      /// </summary>
-      public static void Parse(string[] args)
-      {
-        for (int i = 0; i < args.Count(); i++)
-        {
-          string key, sValue;
-          bool canParse;
-          float fValue;
-
-          key = args[i].ToLower();
-          sValue = (i + 1 < args.Count()) ? args[i + 1] : "";
-          canParse = float.TryParse(sValue, out fValue);
-
-          //  - / をはずす
-          if (key.IndexOf("-") == 0 || key.IndexOf("/") == 0)
-            key = key.Substring(1, key.Length - 1);
-          else
-            continue;
-
-          //小文字で比較
-          switch (key)
-          {
-            case "cpu":
-            case "cputhd":
-              if (canParse) CpuThd = fValue;
-              break;
-
-            case "hdd":
-            case "hddthd":
-              if (canParse) HddThd = fValue;
-              break;
-
-            case "net":
-            case "netthd":
-              if (canParse) NetThd = fValue;
-              break;
-
-            case "dur":
-            case "duration":
-              if (canParse) Duration = fValue;
-              break;
-
-            case "timeout":
-              if (canParse) Timeout = fValue;
-              break;
-          }
-        }
-      }//function
-    }//class
-
-    #endregion コマンドライン
 
     #region PowerModeChangedEvent
-
     /// <summary>
     /// PowerModeChangedEvent
     /// </summary>
     /// <remarks>
-    /// PowerModes.Suspend  →  [windows sleep]  →  PowerModes.Resumeの順で発生するとはかぎらない。
+    /// PowerModes.Suspend  →  [windows sleep]  →  PowerModes.Resume    の順で発生するとはかぎらない。
     ///                         [windows sleep]  →  PowerModes.Suspend  →  PowerModes.Resume 又は
     ///                         [windows sleep]  →  PowerModes.Resume   →  PowerModes.Suspend
     /// の順でイベントが処理されることもある。
-    /// 連続でPowerModes.Resumeだけがくることもあった。
     ///
     /// スリープ処理はデバッグしづらいので、
     /// ”計測の一時停止”から”Exit_withIdle(false)で終了”に処理を変更。

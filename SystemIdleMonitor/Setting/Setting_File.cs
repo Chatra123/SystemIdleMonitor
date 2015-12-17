@@ -9,47 +9,57 @@ using System.Text.RegularExpressions;
 
 namespace SystemIdleMonitor
 {
-  static class Setting
+  public class Setting_File
   {
-    public static List<string> ProcessList { get; private set; }
-    public static string[] TextArgs { get; private set; }
+    public List<string> ProcessList { get; private set; }
+    public string[] TextFileArgs { get; private set; }
 
 
-    static Setting()
+
+    //テキストパス
+    //    外部プロジェクトの Pipe2Pipe から呼び出してもAppNameはSystemIdleMonitor.exeのまま。
+    static readonly string AppPath = System.Reflection.Assembly.GetExecutingAssembly().Location,
+                           AppDir = Path.GetDirectoryName(AppPath),
+                           AppName = Path.GetFileNameWithoutExtension(AppPath),
+                           Default_XmlName = AppName + ".xml",
+                           Default_XmlPath = Path.Combine(AppDir, Default_XmlName);
+
+    readonly string SIM_Default_Path = Path.Combine(AppDir, AppName + ".txt");
+
+
+    /// <summary>
+    /// 設定ファイル読込み
+    /// </summary>
+    public void Load(string path = null, string Default_Text = null)
     {
-      //ファイルパス
-      string txtpath = new Func<string>
-        (() =>
-        {
-          string AppPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-          string AppDir = Path.GetDirectoryName(AppPath);
-          string AppName = Path.GetFileNameWithoutExtension(AppPath);
-          return Path.Combine(AppDir, AppName + ".txt");
-        })();
+
+      path = path ?? SIM_Default_Path;
+
+      Default_Text = Default_Text ?? Setting_Text_Default.SystemIdleMonitor;
 
 
       //読込み
-      if (File.Exists(txtpath) == false)
+      if (File.Exists(path) == false)
       {
-        File.WriteAllText(txtpath, SettingText.Default, Encoding.UTF8);
+        File.WriteAllText(path, Default_Text, Encoding.UTF8);
       }
 
-      var readfile = File.ReadAllLines(txtpath).ToList();
+      var readfile = File.ReadAllLines(path).ToList();
 
 
       //前処理
       readfile = readfile.Select(
-       (line) =>
-       {
-         //コメント削除
-         int found = line.IndexOf("//");
-         line = (0 <= found) ? line.Substring(0, found) : line;
-         line = line.Trim();
-         return line;
-       })
-       .Where((line) => string.IsNullOrWhiteSpace(line) == false)    //空白行削除
-       .Distinct()                                                   //重複削除
-       .ToList();
+                          (line) =>
+                          {
+                            //コメント削除
+                            int found = line.IndexOf("//");
+                            line = (0 <= found) ? line.Substring(0, found) : line;
+                            line = line.Trim();
+                            return line;
+                          })
+                          .Where((line) => string.IsNullOrWhiteSpace(line) == false)    //空白行削除
+                          .Distinct()                                                   //重複削除
+                          .ToList();
 
 
       //ProcessList
@@ -68,30 +78,30 @@ namespace SystemIdleMonitor
        .ToList();
 
 
-      //テキストからの引数
-      TextArgs = new Func<List<string>, string[]>(
-       (text) =>
-       {
-         //string "-cpu 30"をスペースで分割してList<string>に変換。
-         //List<string>  →  List<List<string>>
-         var T1 = text.Select(line =>
-         {
-           return line.Split(new char[] { ' ', '　', '\t' }).ToList();
-         });
+      //ファイルからの引数
+      {
+        //string "-cpu 30"をスペースで分割してList<string>に変換。
+        //List<string>  →  List<List<string>>
+        var L1 = readfile.Select(line =>
+        {
+          return line.Split(new char[] { ' ', '　', '\t' }).ToList();
+        });
 
-         //List<List<string>>  →  List<string>
-         var T2 = T1.SelectMany(element => element)
+        //List<List<string>>  →  List<string>
+        var L2 = L1.SelectMany(element => element)
                     .Where((line) => string.IsNullOrWhiteSpace(line) == false);  //空白行削除
 
-         return T2.ToArray();
-       })(readfile);
+        TextFileArgs = L2.ToArray();
+      }
+
+
     }
   }
 
   //設定テキスト
-  static class SettingText
+  public static class Setting_Text_Default
   {
-    public const string Default =
+    public const string SystemIdleMonitor =
    @"
 //
 //### SystemIdleMonitorについて
@@ -107,12 +117,12 @@ namespace SystemIdleMonitor
 //### プロセスでフィルター
 //
 //  * プロセスのイメージ名はこのファイルの下部に書いてください。
-//
-//  * イメージ名はタスクマネージャーを見てください。
+//    イメージ名はタスクマネージャーを見てください。
 //
 //  * 大文字小文字の違いは無視する。
+//    全角半角、ひらがなカタカナは区別する。
 //
-//  * .exeは書かなくてもいいです。
+//  * 拡張子.exeが付いていたら無視して評価します。
 //
 //  * ワイルドカードが使えます。
 //        ０文字以上：  *        １文字：  +
@@ -140,7 +150,7 @@ namespace SystemIdleMonitor
 //
 //### 文字コード
 //
-//  * UTF-8 bom
+//  * このテキストの文字コード　UTF-8 bom
 //
 //
 //
@@ -150,14 +160,6 @@ namespace SystemIdleMonitor
 -net      -1
 -duration 20
 -timeout  30 
-
-
-ffmpeg
-x264
-
-
-
-
 
 
 

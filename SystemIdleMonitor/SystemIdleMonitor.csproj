@@ -42,11 +42,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CheckProcess.cs" />
-    <Compile Include="Setting.cs" />
     <Compile Include="Exception\ExceptionInfo.cs" />
-    <Compile Include="SystemMonitor\SystemCounter.cs" />
-    <Compile Include="SystemMonitor\SystemMonitor.cs" />
+    <Compile Include="Setting\Setting_CmdLine.cs" />
+    <Compile Include="Setting\Setting_File.cs" />
+    <Compile Include="Setting\Mono.Options\Options.cs" />
+    <Compile Include="Setting\Mono.Options\Options_icase.cs" />
+    <Compile Include="SystemMonitor\BlackProcessChecker.cs" />
+    <Compile Include="SystemMonitor\SystemIdleMonitor\MonitorQueue.cs" />
+    <Compile Include="SystemMonitor\SystemCounter\SampleCode\SampleCode.cs" />
+    <Compile Include="SystemMonitor\SystemCounter\SystemCounter.cs" />
+    <Compile Include="SystemMonitor\ProcessBusyChecker.cs" />
+    <Compile Include="SystemMonitor\SystemIdleMonitor\SystemIdleMonitor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
