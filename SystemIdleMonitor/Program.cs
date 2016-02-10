@@ -7,8 +7,6 @@ using Microsoft.Win32;  // SystemEvents.PowerModeChanged
 
 namespace SystemIdleMonitor
 {
-  using OctNov.Excp;
-
   /// <summary>
   /// 閾値のデフォルト値
   /// </summary>
@@ -43,7 +41,7 @@ namespace SystemIdleMonitor
 
 
       //Initialize
-      AppDomain.CurrentDomain.UnhandledException += ExceptionInfo.OnUnhandledException;  //例外を捕捉する
+      AppDomain.CurrentDomain.UnhandledException += OctNov.Excp.ExceptionInfo.OnUnhandledException;
 
       SystemEvents.PowerModeChanged += OnPowerModeChanged;                               //Windows Sleep検知
 
