@@ -67,71 +67,7 @@ namespace SystemIdleMonitor
         return;
       }
     }
-
-
-
-
-
-
-
-
-
-
-    /// <summary>
-    /// コマンドライン解析
-    /// </summary>
-    public static void Parse_obsolete(string[] args)
-    {
-      for (int i = 0; i < args.Count(); i++)
-      {
-        string key, sValue;
-        bool canParse;
-        float fValue;
-
-        key = args[i].ToLower();
-        sValue = (i + 1 < args.Count()) ? args[i + 1] : "";
-        canParse = float.TryParse(sValue, out fValue);
-
-        //  - / をはずす
-        if (key.IndexOf("-") == 0 || key.IndexOf("/") == 0)
-          key = key.Substring(1, key.Length - 1);
-        else
-          continue;
-
-        //小文字で比較
-        switch (key)
-        {
-          case "cpu":
-          case "cputhd":
-            if (canParse) CpuThd = fValue;
-            break;
-
-          case "hdd":
-          case "hddthd":
-            if (canParse) HddThd = fValue;
-            break;
-
-          case "net":
-          case "netthd":
-            if (canParse) NetThd = fValue;
-            break;
-
-          case "dur":
-          case "duration":
-            if (canParse) Duration = fValue;
-            break;
-
-          case "timeout":
-            if (canParse) Timeout = fValue;
-            break;
-        }
-      }
-
-    }
-
-
-
+    
 
   }
-
 }

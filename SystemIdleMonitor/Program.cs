@@ -14,7 +14,7 @@ namespace SystemIdleMonitor
   {
     public const float
       //      %            MiB/sec          Mbps            sec           sec
-      Cpu = 60f, Hdd = 30.0f, Network = -1.0f, Durarion = 20, Timeout = 30;
+      Cpu = 60f, Hdd = 30.0f, Network = -1.0f, Durarion = 10, Timeout = 20;
   }
 
   internal class Program
@@ -35,8 +35,8 @@ namespace SystemIdleMonitor
       //testArgs.AddRange(new string[] { "-cputhd", "40" });         //%
       //testArgs.AddRange(new string[] { "-hddthd", "6" });          //MiB/sec
       //testArgs.AddRange(new string[] { "-netthd", "10" });         //Mbps
-      //testArgs.AddRange(new string[] { "-duration", "20" });       //sec
-      //testArgs.AddRange(new string[] { "-timeout", "30" });        //sec
+      //testArgs.AddRange(new string[] { "-duration", "10" });       //sec
+      //testArgs.AddRange(new string[] { "-timeout", "20" });        //sec
       //appArgs = testArgs.ToArray();
 
 
@@ -61,7 +61,6 @@ namespace SystemIdleMonitor
       //初期値
       CommandLine.SetDefault(new float[] { DefThreshold.Cpu, DefThreshold.Hdd, DefThreshold.Network,
                                            DefThreshold.Durarion, DefThreshold.Timeout });
-
       //
       //設定ファイル
       //

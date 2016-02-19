@@ -17,7 +17,7 @@ namespace SystemIdleMonitor
 
 
     //テキストパス
-    //    外部プロジェクトの Pipe2Pipe から呼び出してもAppNameはSystemIdleMonitor.exeのまま。
+    //    外部プロジェクト Valve2Pipeから呼び出してもAppNameはSystemIdleMonitor.exeのまま。
     static readonly string AppPath = System.Reflection.Assembly.GetExecutingAssembly().Location,
                            AppDir = Path.GetDirectoryName(AppPath),
                            AppName = Path.GetFileNameWithoutExtension(AppPath),
@@ -32,20 +32,15 @@ namespace SystemIdleMonitor
     /// </summary>
     public void Load(string path = null, string Default_Text = null)
     {
-
       path = path ?? SIM_Default_Path;
-
       Default_Text = Default_Text ?? Setting_Text_Default.SystemIdleMonitor;
-
 
       //読込み
       if (File.Exists(path) == false)
       {
         File.WriteAllText(path, Default_Text, Encoding.UTF8);
       }
-
       var readfile = File.ReadAllLines(path).ToList();
-
 
       //前処理
       readfile = readfile.Select(
@@ -60,8 +55,6 @@ namespace SystemIdleMonitor
                           .Where((line) => string.IsNullOrWhiteSpace(line) == false)    //空白行削除
                           .Distinct()                                                   //重複削除
                           .ToList();
-
-
       //ProcessList
       ProcessList = readfile.Select(
        (line) =>
@@ -94,7 +87,6 @@ namespace SystemIdleMonitor
         TextFileArgs = L2.ToArray();
       }
 
-
     }
   }
 
@@ -108,7 +100,7 @@ namespace SystemIdleMonitor
 //
 //  * ＣＰＵ使用率が低いかを監視し、指定プロセスが動いていないことも確認します。
 //
-//  * ２０秒間、ＣＰＵ使用率６０％以下、ＨＤＤのＩＯが３０ＭｉＢ/ｓｅｃ以下ならリターンコード０。
+//  * １０秒間、ＣＰＵ使用率６０％以下、ＨＤＤのＩＯが３０ＭｉＢ/ｓｅｃ以下ならリターンコード０。
 //
 //  * 負荷が高い又は、指定のプロセスが稼動しているとリターンコード１。
 //
@@ -143,8 +135,8 @@ namespace SystemIdleMonitor
 //  -cpu      60        閾値        ６０％
 //  -hdd      30                    ３０ＭｉＢ/ｓｅｃ     （読書きの合計値）
 //  -net      -1                    計測しない  Ｍｂｐｓ  （送受信の合計値）
-//  -duration 20        計測時間    ２０秒
-//  -timeout  30        処理中断    ３０秒
+//  -duration 10        計測時間    １０秒
+//  -timeout  20        処理中断    ２０秒
 //
 //
 //
@@ -158,8 +150,8 @@ namespace SystemIdleMonitor
 -cpu      60
 -hdd      30
 -net      -1
--duration 20
--timeout  30 
+-duration 10
+-timeout  20 
 
 
 
