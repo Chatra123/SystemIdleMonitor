@@ -1,18 +1,16 @@
 ﻿/*
  * 最終更新日　16/02/10
  * 
- * □概要
+ * 概要
  * 
  * 　  例外の内容をerrlogファイルに保存する。
- * 　  
  * 
- * □使い方
- *    Program Main(string[] args)の先頭に
+ * Program Main(string[] args)の先頭に
  * 
  *    //例外を捕捉する
  *    AppDomain.CurrentDomain.UnhandledException += OctNov.Excp.ExceptionInfo.OnUnhandledException;
  * 
- *    を追加する。
+ * を追加。
  * 
  *  
  */
@@ -63,7 +61,7 @@ namespace OctNov.Excp
       finally
       {
         var excp = (Exception)args.ExceptionObject;
-        throw excp;                    //Windowsのエラーダイアログを表示
+        throw excp;                    //Windowsのエラーダイアログをだす
       }
     }
   }
