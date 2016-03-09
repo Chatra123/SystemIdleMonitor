@@ -8,10 +8,11 @@ using System.Diagnostics;
 
 namespace SystemIdleMonitor.Sample
 {
-
   class SystemCounter_SampleCode
   {
-
+    /// <summary>
+    /// ＣＰＵ使用率、ＨＤＤ転送速度、ネットワーク転送速度を表示
+    /// </summary>
     public static void Run_SystemCounter_1()
     {
       //起動に数秒かかる
@@ -30,23 +31,21 @@ namespace SystemIdleMonitor.Sample
         Console.WriteLine(line);
         Thread.Sleep(1000);
       }
-
     }
 
-
+    /// <summary>
+    /// "mpc-be64"のプロセスＣＰＵ使用率を表示
+    /// </summary>
     public static void Run_SystemCounter_2()
     {
       //mpc-be64を２つ起動してから実行する
-
       const string MediaPlayer = "mpc-be64";
-
 
       //起動に数秒かかる
       var systemCounter = new SystemCounter();
 
       var mplayer_list = Process.GetProcessesByName(MediaPlayer);
-      if (mplayer_list.Count() <= 1) throw new Exception();  //プロセスが２つ起動していない
-
+      if (mplayer_list.Count() <= 1) throw new Exception();  //"mpc-be64"が２つ起動していない
 
       int pid0 = mplayer_list[0].Id;
       int pid1 = mplayer_list[1].Id;

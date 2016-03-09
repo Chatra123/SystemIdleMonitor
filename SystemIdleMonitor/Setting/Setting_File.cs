@@ -14,8 +14,6 @@ namespace SystemIdleMonitor
     public List<string> ProcessList { get; private set; }
     public string[] TextFileArgs { get; private set; }
 
-
-
     //テキストパス
     //    外部プロジェクト Valve2Pipeから呼び出してもAppNameはSystemIdleMonitor.exeのまま。
     static readonly string AppPath = System.Reflection.Assembly.GetExecutingAssembly().Location,
@@ -25,7 +23,6 @@ namespace SystemIdleMonitor
                            Default_XmlPath = Path.Combine(AppDir, Default_XmlName);
 
     readonly string SIM_Default_Path = Path.Combine(AppDir, AppName + ".txt");
-
 
     /// <summary>
     /// 設定ファイル読込み
@@ -100,7 +97,7 @@ namespace SystemIdleMonitor
 //
 //  * ＣＰＵ使用率が低いかを監視し、指定プロセスが動いていないことも確認します。
 //
-//  * １０秒間、ＣＰＵ使用率６０％以下、ＨＤＤのＩＯが３０ＭｉＢ/ｓｅｃ以下ならリターンコード０。
+//  * １０秒間の平均ＣＰＵ使用率が６０％以下、ＨＤＤのＩＯが３０ＭｉＢ/ｓｅｃ以下ならリターンコード０。
 //
 //  * 負荷が高い又は、指定のプロセスが稼動しているとリターンコード１。
 //

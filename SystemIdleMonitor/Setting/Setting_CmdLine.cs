@@ -36,12 +36,11 @@ namespace SystemIdleMonitor
     /// </summary>
     public static void Parse(string[] args)
     {
-      //    /*  Mono.Options  */
-      //オプションと説明、そのオプションの引数に対するアクションを定義する
-      //OptionSet_icaseに渡すオプションは小文字にすること。
+      //    /*Mono.Options*/
+      //case insensitive
+      //”オプション”　”説明”　”オプションの引数に対するアクション”を定義する。
+      //OptionSet_icaseに渡すオプションは小文字で記述し、
       //オプションの最後に=をつける。 bool型ならつけない。
-      //判定は case insensitive
-
       var optionset = new OptionSet_icase();
       optionset
         .Add("cpu=", "CPU threashold", (float v) => CpuThd = v)
@@ -54,7 +53,8 @@ namespace SystemIdleMonitor
         .Add("dur=", "duration sec", (float v) => Duration = v)
         .Add("duration=", "duration sec", (float v) => Duration = v)
         .Add("timeout=", "timeout sec", (float v) => Timeout = v)
-        .Add("and_more", "help mes", (v) => { });
+
+        .Add("and_more", "help mes", (v) => { /*action*/ });
 
       try
       {

@@ -169,12 +169,10 @@ namespace SystemIdleMonitor
 
     #endregion
 
-
     public ProcessorCounter Processor;
     public ProcessCPUCounter IdleProcess;
     public HddCounterSet HDD;
     public NetworkCounterSet Network;
-
 
     //constructor
     public SystemCounter()
@@ -210,9 +208,6 @@ namespace SystemIdleMonitor
     }
 
     #endregion
-
-
-
 
 
     #region ProcessCPU
@@ -259,7 +254,6 @@ namespace SystemIdleMonitor
         return IsAlive;
       }
 
-
       /// <summary>
       /// ＣＰＵ使用率を取得する。
       /// </summary>
@@ -272,17 +266,10 @@ namespace SystemIdleMonitor
 
       }
     }
-
-
-
     #endregion
 
 
-
-
-
     #region HDD
-
     /// <summary>
     /// ＨＤＤの転送量を取得する。
     /// </summary>
@@ -386,7 +373,6 @@ namespace SystemIdleMonitor
         Transfer(BytePerSec.Bps);
       }
 
-
       /// <summary>
       /// ドライブ単体の読込み速度を取得
       /// </summary>
@@ -420,15 +406,10 @@ namespace SystemIdleMonitor
         catch { return 0; }
       }
     }
-
     #endregion HDD
 
 
-
-
-
     #region Network
-
     /// <summary>
     /// ネットワークの転送速度を取得
     /// </summary>
@@ -552,10 +533,7 @@ namespace SystemIdleMonitor
         catch { return 0; }
       }
     }
-
     #endregion Network
-
-
 
 
   }//class
@@ -566,15 +544,10 @@ namespace SystemIdleMonitor
 
 
   #region Prefix
-
   internal enum Byte { B = 0, KiB = 1, MiB = 2, }
-
   internal enum bit { b = 0, Kib = 1, Mib = 2, }
-
   internal enum BytePerSec { Bps = 0, KiBps = 1, MiBps = 2, }
-
   internal enum bitPerSec { bps = 0, Kibps = 1, Mibps = 2, }
-
   internal enum SIPrefix { none = 0, K = 1, M = 2, }
 
   internal static class Prefixing

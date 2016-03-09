@@ -29,7 +29,6 @@ namespace SystemIdleMonitor
 
     private static void Main(string[] appArgs)
     {
-
       ////テスト引数
       //var testArgs = new List<string>();
       //testArgs.AddRange(new string[] { "-cputhd", "40" });         //%
@@ -38,7 +37,6 @@ namespace SystemIdleMonitor
       //testArgs.AddRange(new string[] { "-duration", "10" });       //sec
       //testArgs.AddRange(new string[] { "-timeout", "20" });        //sec
       //appArgs = testArgs.ToArray();
-
 
       //Initialize
       AppDomain.CurrentDomain.UnhandledException += OctNov.Excp.ExceptionInfo.OnUnhandledException;
@@ -73,7 +71,7 @@ namespace SystemIdleMonitor
       //実行ファイルの引数
       CommandLine.Parse(appArgs);
 
-      //duration
+      //check duration
       duration = CommandLine.Duration;
       timeout = CommandLine.Timeout;
       if (duration <= 0)
@@ -85,13 +83,10 @@ namespace SystemIdleMonitor
       //ブラックプロセス
       //
       blackChecker = new BlackProcessChecker(setting_file.ProcessList);
-
-      //systemMonitor作成前に１度チェック。
       if (blackChecker.NotExistBlack() == false)
       {
         Exit_withIdle(false);          //終了　ブラックプロセス
       }
-
 
       //
       //SystemIdleMonitor
@@ -146,12 +141,11 @@ namespace SystemIdleMonitor
     }//func
 
     /// <summary>
-    /// 画面表示用のテキスト取得
+    /// 画面表示用のテキスト作成
     /// </summary>
     private static string GetText_MonitoringState()
     {
       var text = new StringBuilder();
-
       var system = (systemMonitor != null) ? systemMonitor.MonitoringState() : "";
 
       var black = (blackChecker.NotExistBlack()) ? "○" : "×";
@@ -163,7 +157,6 @@ namespace SystemIdleMonitor
       text.AppendLine(system);
       text.AppendLine("NotExistBlack = " + black);
       text.AppendLine("SysteIsIdle   = " + idle);
-
       return text.ToString();
     }
 

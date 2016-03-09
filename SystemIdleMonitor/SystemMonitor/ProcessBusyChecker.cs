@@ -25,7 +25,6 @@ namespace SystemIdleMonitor
     {
       //pid = -1 ならprocessCounterの作成に失敗して、
       //ProcessのＣＰＵ使用率に関しては評価されない。
-
       System__CPU_Max = system__CPU_Max;
       Process_CPU_Max = process_CPU_Max;
 
