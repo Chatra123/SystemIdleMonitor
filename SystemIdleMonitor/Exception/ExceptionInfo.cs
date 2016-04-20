@@ -1,16 +1,18 @@
 ﻿/*
- * 最終更新日　16/02/10
+ * 最終更新日　16/04/04
  * 
- * 概要
+ * □概要
  * 
  * 　  例外の内容をerrlogファイルに保存する。
+ * 　  
  * 
- * Program Main(string[] args)の先頭に
+ * □使い方
+ *    Program Main(string[] args)の先頭に
  * 
  *    //例外を捕捉する
  *    AppDomain.CurrentDomain.UnhandledException += OctNov.Excp.ExceptionInfo.OnUnhandledException;
  * 
- * を追加。
+ *    を追加する。
  * 
  *  
  */
@@ -21,7 +23,7 @@ using System.Text;
 
 namespace OctNov.Excp
 {
-  internal static class ExceptionInfo
+  static class ExceptionInfo
   {
     /// <summary>
     /// 例外発生時に内容をファイルに保存する。
@@ -30,14 +32,14 @@ namespace OctNov.Excp
     {
       try
       {
-        var excp = (Exception)args.ExceptionObject;
+        var exc = (Exception)args.ExceptionObject;
 
         //例外の情報
         var info = new StringBuilder();
         {
           info.AppendLine("--------------------------------------------------");
           info.AppendLine(DateTime.Now.ToString("G"));
-          info.AppendFormat("Exception  = {0}", excp.ToString());
+          info.AppendFormat("Exception  = {0}", exc.ToString());
           info.AppendLine();
         }
 
@@ -60,8 +62,8 @@ namespace OctNov.Excp
       }
       finally
       {
-        var excp = (Exception)args.ExceptionObject;
-        throw excp;                    //Windowsのエラーダイアログをだす
+        var exc = (Exception)args.ExceptionObject;
+        throw exc;                    //Windowsのエラーダイアログを表示
       }
     }
   }
