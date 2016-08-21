@@ -23,7 +23,7 @@ namespace SystemIdleMonitor
     private static SystemIdleMonitor systemMonitor;
     private static BlackProcessChecker blackChecker;
 
-    private static float duration, timeout;                 //計測期間、タイムアウト時間
+    private static float duration, timeout;                 //計測時間
     private static bool HaveConsole;                        //コンソールを持っているか？
 
 
@@ -59,19 +59,15 @@ namespace SystemIdleMonitor
       //初期値
       CommandLine.SetDefault(new float[] { DefThreshold.Cpu, DefThreshold.Hdd, DefThreshold.Network,
                                            DefThreshold.Durarion, DefThreshold.Timeout });
-      //
       //設定ファイル
-      //
       var setting_file = new Setting_File();
       setting_file.Load();
 
-      //テキストファイルの引数
       CommandLine.Parse(setting_file.TextFileArgs);
 
-      //実行ファイルの引数
       CommandLine.Parse(appArgs);
 
-      //check duration
+      //check
       duration = CommandLine.Duration;
       timeout = CommandLine.Timeout;
       if (duration <= 0)
@@ -108,7 +104,7 @@ namespace SystemIdleMonitor
       {
         lock (sync)
         {
-          //画面表示更新
+          //画面表示
           if (HaveConsole)
           {
             string text = GetText_MonitoringState();
@@ -117,7 +113,7 @@ namespace SystemIdleMonitor
           }
 
           //timeout? 
-          //      timeout = -1 なら無期限待機
+          //      timeout = -1 なら無期限
           if (0 < timeout
                && timeout < (DateTime.Now - startTime).TotalSeconds
               )
@@ -168,12 +164,14 @@ namespace SystemIdleMonitor
       string text = isIdleExit ? "true" : "false";
       int exitcode = isIdleExit ? 0 : 1;
 
-      if (HaveConsole) Console.Clear();
+      if (HaveConsole) 
+        Console.Clear();
       Console.WriteLine(text);
       Console.WriteLine(GetText_MonitoringState());
 
       SystemEvents.PowerModeChanged -= OnPowerModeChanged;
-      Thread.Sleep(2000);
+      if (HaveConsole)
+        Thread.Sleep(2000);
       Environment.Exit(exitcode);
     }
 
