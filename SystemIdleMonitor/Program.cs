@@ -20,12 +20,10 @@ namespace SystemIdleMonitor
   internal class Program
   {
     private static readonly object sync = new object();
-    private static SystemIdleMonitor systemMonitor;
+    private static SystemIdleMonitor monitor;
     private static BlackProcessChecker blackChecker;
-
-    private static float duration, timeout;                 //計測時間
-    private static bool HaveConsole;                        //コンソールを持っているか？
-
+    private static float duration, timeout;
+    private static bool HasConsole;          //コンソールウィンドウを持っているか？
 
     private static void Main(string[] appArgs)
     {
@@ -40,19 +38,18 @@ namespace SystemIdleMonitor
 
       //Initialize
       AppDomain.CurrentDomain.UnhandledException += OctNov.Excp.ExceptionInfo.OnUnhandledException;
-
       SystemEvents.PowerModeChanged += OnPowerModeChanged;                               //Windows Sleep検知
 
       //コンソールウィンドウを持っているか？
       try
       {
         Console.Clear();
-        HaveConsole = true;
+        HasConsole = true;
       }
       catch
       {
         //ファイル等にリダイレクトされていると例外
-        HaveConsole = false;
+        HasConsole = false;
       }
 
       //CommandLine
@@ -62,79 +59,64 @@ namespace SystemIdleMonitor
       //設定ファイル
       var setting_file = new Setting_File();
       setting_file.Load();
-
       CommandLine.Parse(setting_file.TextFileArgs);
-
       CommandLine.Parse(appArgs);
 
-      //check
-      duration = CommandLine.Duration;
-      timeout = CommandLine.Timeout;
-      if (duration <= 0)
-      {
-        Exit_withIdle(false);          //終了  duration <= 0 
-      }
 
-      //
       //ブラックプロセス
-      //
       blackChecker = new BlackProcessChecker(setting_file.ProcessList);
       if (blackChecker.NotExistBlack() == false)
       {
         Exit_withIdle(false);          //終了　ブラックプロセス
       }
 
-      //
+
       //SystemIdleMonitor
-      //
       //  PerformanceCounterの作成は初回のみ数秒かかる。ＣＰＵ負荷も高い。
-      systemMonitor = new SystemIdleMonitor(CommandLine.CpuThd,
-                                            CommandLine.HddThd,
-                                            CommandLine.NetThd,
-                                            (int)duration);
-      systemMonitor.TimerStart();
+      duration = CommandLine.Duration;
+      timeout = CommandLine.Timeout;
+      monitor = new SystemIdleMonitor(CommandLine.CpuThd,
+                                      CommandLine.HddThd,
+                                      CommandLine.NetThd,
+                                      (int)duration);
+      monitor.Start();
 
 
       //
       //main loop
       //
       Thread.Sleep(500);              //systemMonitorと更新タイミングをずらす
-      var startTime = DateTime.Now;
       while (true)
       {
         lock (sync)
         {
           //画面表示
-          if (HaveConsole)
+          if (HasConsole)
           {
             string text = GetText_MonitoringState();
             Console.Clear();
             Console.Error.WriteLine(text);
           }
 
-          //timeout? 
-          //      timeout = -1 なら無期限
+          //timeout ? 
+          //  timeout = -1 なら無期限
           if (0 < timeout
-               && timeout < (DateTime.Now - startTime).TotalSeconds
-              )
+               && timeout < monitor.Elapse.TotalSeconds)
           {
             Exit_withIdle(false);      //終了 タイムアウト
           }
 
-          //SystemIsIdle?
-          if (systemMonitor.SystemIsIdle()
-              && blackChecker.NotExistBlack()
-              )
+          //System Is Idle ?
+          if (monitor.SystemIsIdle()
+            && blackChecker.NotExistBlack())
           {
             Exit_withIdle(true);       //終了 アイドル
           }
         }
-
         Thread.Sleep(1 * 1000);
-
       }//while
-
     }//func
+
 
     /// <summary>
     /// 画面表示用のテキスト作成
@@ -142,12 +124,12 @@ namespace SystemIdleMonitor
     private static string GetText_MonitoringState()
     {
       var text = new StringBuilder();
-      var system = (systemMonitor != null) ? systemMonitor.MonitoringState() : "";
+      var system = (monitor != null) ? monitor.MonitorState() : "";
 
       var black = (blackChecker.NotExistBlack()) ? "○" : "×";
 
-      var idle = (systemMonitor != null
-        && systemMonitor.SystemIsIdle()) ? "○" : "×";
+      var idle = (monitor != null
+        && monitor.SystemIsIdle()) ? "○" : "×";
 
       text.AppendLine("duration = " + duration + "    timeout = " + timeout);
       text.AppendLine(system);
@@ -155,6 +137,7 @@ namespace SystemIdleMonitor
       text.AppendLine("SysteIsIdle   = " + idle);
       return text.ToString();
     }
+
 
     /// <summary>
     /// 終了処理
@@ -164,13 +147,13 @@ namespace SystemIdleMonitor
       string text = isIdleExit ? "true" : "false";
       int exitcode = isIdleExit ? 0 : 1;
 
-      if (HaveConsole) 
+      if (HasConsole)
         Console.Clear();
       Console.WriteLine(text);
       Console.WriteLine(GetText_MonitoringState());
 
       SystemEvents.PowerModeChanged -= OnPowerModeChanged;
-      if (HaveConsole)
+      if (HasConsole)
         Thread.Sleep(2000);
       Environment.Exit(exitcode);
     }
@@ -187,10 +170,6 @@ namespace SystemIdleMonitor
     ///                         [windows sleep]  →  PowerModes.Suspend  →  PowerModes.Resume 又は
     ///                         [windows sleep]  →  PowerModes.Resume   →  PowerModes.Suspend
     /// の順でイベントが処理されることもある。
-    ///
-    /// スリープ処理はデバッグしづらいので、
-    /// ”計測の一時停止”から”Exit_withIdle(false)で終了”に処理を変更。
-    /// 
     /// </remarks>
     private static void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {

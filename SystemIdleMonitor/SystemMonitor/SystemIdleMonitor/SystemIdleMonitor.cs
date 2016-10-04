@@ -10,60 +10,58 @@ namespace SystemIdleMonitor
   /// <summary>
   /// システム使用率が低いかを監視
   /// </summary>
-  internal class SystemIdleMonitor
+  public class SystemIdleMonitor
   {
-    private SystemCounter systemCounter;
-    private SystemIdleMonitorQueue queCpu, queHDD, queNetwork;
+    private SystemCounter Counter;
+    private Queue_SIM queCpu, queHDD, queNet;
 
     private readonly object sync = new object();
-    private Timer MonitoringTimer;
-    private bool TimerIsWorking;
+    private Timer timer;
+    public bool IsWorking { get; private set; }
+    private DateTime StartTime;
+    public TimeSpan Elapse { get { return DateTime.Now - StartTime; } }
 
-    //Constructor
+
+    /// <summary>
+    /// Constructor
+    /// </summary>
     public SystemIdleMonitor(float thd_cpu, float thd_hdd, float thd_net, int duration_sec)
     {
-      lock (sync)
-      {
-        //Queue
-        int queCapacity = duration_sec;
-        queCpu = new SystemIdleMonitorQueue(thd_cpu, queCapacity);        //thd or queCapacityがマイナスなら無効状態で作成される。
-        queHDD = new SystemIdleMonitorQueue(thd_hdd, queCapacity);
-        queNetwork = new SystemIdleMonitorQueue(thd_net, queCapacity);
-
-        //SystemCounter
-        systemCounter = new SystemCounter();
-
-        //timer
-        MonitoringTimer = new Timer(new TimerCallback(timer_Tick));
-      }
+      //Queue
+      int capacity = duration_sec;
+      queCpu = new Queue_SIM(thd_cpu, capacity);  //thdがマイナスなら無効状態で作成される。
+      queHDD = new Queue_SIM(thd_hdd, capacity);
+      queNet = new Queue_SIM(thd_net, capacity);
+      Counter = new SystemCounter();
+      //timer
+      timer = new Timer(new TimerCallback(timer_Tick));
     }
 
     /// <summary>
-    /// TimerStart
+    /// Start
     /// </summary>
-    public void TimerStart()
+    public void Start()
     {
       lock (sync)
       {
-        MonitoringTimer.Change(0, 1000);         //１秒間隔で処理
-        TimerIsWorking = true;
-      }
-    }
-
-    /// <summary>
-    /// TimerStop
-    /// </summary>
-    public void TimerStop()
-    {
-      lock (sync)
-      {
-        TimerIsWorking = false;
-        MonitoringTimer.Change(Timeout.Infinite, Timeout.Infinite);
-
-        //Reset
         queCpu.Reset();
         queHDD.Reset();
-        queNetwork.Reset();
+        queNet.Reset();
+        timer.Change(0, 1000);         //１秒間隔で処理
+        StartTime = DateTime.Now;
+        IsWorking = true;
+      }
+    }
+
+    /// <summary>
+    /// Stop
+    /// </summary>
+    public void Stop()
+    {
+      lock (sync)
+      {
+        IsWorking = false;
+        timer.Change(Timeout.Infinite, Timeout.Infinite);
       }
     }
 
@@ -74,15 +72,12 @@ namespace SystemIdleMonitor
     {
       lock (sync)
       {
-        //値を取得する前にEnableでフィルター、０．１％ぐらいは負荷が下がる。
         if (queCpu.Enable)
-          queCpu.Enqueue(systemCounter.Processor.Usage());
-
+          queCpu.Enqueue(Counter.Processor.Usage());
         if (queHDD.Enable)
-          queHDD.Enqueue(systemCounter.HDD.TotalTransfer(BytePerSec.MiBps));
-
-        if (queNetwork.Enable)
-          queNetwork.Enqueue(systemCounter.Network.Transfer(bitPerSec.Mibps));
+          queHDD.Enqueue(Counter.HDD.TotalTransfer(BytePerSec.MiBps));
+        if (queNet.Enable)
+          queNet.Enqueue(Counter.Network.Transfer(bitPerSec.Mibps));
       }
     }
 
@@ -93,10 +88,10 @@ namespace SystemIdleMonitor
     {
       lock (sync)
       {
-        return TimerIsWorking
+        return IsWorking
                 && queCpu.IsUnderThreshold
                 && queHDD.IsUnderThreshold
-                && queNetwork.IsUnderThreshold;
+                && queNet.IsUnderThreshold;
       }
     }
 
@@ -104,54 +99,47 @@ namespace SystemIdleMonitor
     /// 画面表示用のテキスト作成
     /// </summary>
     /// <returns></returns>
-    public string MonitoringState()
+    public string MonitorState()
     {
       lock (sync)
       {
         string cpuformat = "{0,6:##0} %     ", hddformat = "{0,6:###0.0} MiB/s ", netformat = "{0,6:###0.0} Mibps";
-        string empty = "             ";
+        string space = new string(' ', 13);
         string line;
-
         var state = new StringBuilder();
         state.AppendLine("               CPU         HDD          Network");
-
 
         //Threshold
         line = "";
         line += "Threshold :";
-        line += (queCpu.Enable) ? String.Format(cpuformat, queCpu.Threshold) : empty;
-        line += (queHDD.Enable) ? String.Format(hddformat, queHDD.Threshold) : empty;
-        line += (queNetwork.Enable) ? String.Format(netformat, queNetwork.Threshold) : empty;
+        line += (queCpu.Enable) ? string.Format(cpuformat, queCpu.Threshold) : space;
+        line += (queHDD.Enable) ? string.Format(hddformat, queHDD.Threshold) : space;
+        line += (queNet.Enable) ? string.Format(netformat, queNet.Threshold) : space;
         state.AppendLine(line);
-
         //Average
         line = "";
         line += "  Average :";
-        line += (queCpu.Enable) ? String.Format(cpuformat, queCpu.Average) : empty;
-        line += (queHDD.Enable) ? String.Format(hddformat, queHDD.Average) : empty;
-        line += (queNetwork.Enable) ? String.Format(netformat, queNetwork.Average) : empty;
+        line += (queCpu.Enable) ? string.Format(cpuformat, queCpu.Average) : space;
+        line += (queHDD.Enable) ? string.Format(hddformat, queHDD.Average) : space;
+        line += (queNet.Enable) ? string.Format(netformat, queNet.Average) : space;
         state.AppendLine(line);
-
         //Value
         line = "";
         line += "    Value :";
-        line += (queCpu.Enable) ? String.Format(cpuformat, queCpu.LatestValue) : empty;
-        line += (queHDD.Enable) ? String.Format(hddformat, queHDD.LatestValue) : empty;
-        line += (queNetwork.Enable) ? String.Format(netformat, queNetwork.LatestValue) : empty;
+        line += (queCpu.Enable) ? string.Format(cpuformat, queCpu.LatestValue) : space;
+        line += (queHDD.Enable) ? string.Format(hddformat, queHDD.LatestValue) : space;
+        line += (queNet.Enable) ? string.Format(netformat, queNet.LatestValue) : space;
         state.AppendLine(line);
-
         //Fill
-        var quelist = new SystemIdleMonitorQueue[] { queCpu, queHDD, queNetwork };
+        var quelist = new Queue_SIM[] { queCpu, queHDD, queNet };
         quelist = quelist.Where((que) => que.Enable).ToArray();
-        //Enableなqueがある？
-        if (0 < quelist.Count())
+        if (quelist.Any())
         {
           line = "";
           line += "     Fill :";
-          line += String.Format(" {0,3:##0} / {1,3:##0}", quelist[0].Count, quelist[0].Capacity);
+          line += string.Format(" {0,3:##0} / {1,3:##0}", quelist[0].Count, quelist[0].Capacity);
           state.AppendLine(line);
         }
-
         return state.ToString();
       }
     }
