@@ -12,13 +12,12 @@ namespace SystemIdleMonitor
    * ログ表示用のLatestValueを記録し、
    * IsUnderThresholdでQueue内の値が閾値以下かを判定する。
    */
-  internal class Queue_SIM
+  internal class MonitorQueue
   {
     private Queue<float> Que;
     public bool Enable;
     public float Threshold { get; private set; }
     public int Capacity { get; private set; }
-
     public int Count { get { return Que.Count; } }
     public bool IsFilled { get { return Capacity <= Que.Count; } }
     public float Average { get { return Que.Any() ? Que.Average() : 0; } }
@@ -34,7 +33,7 @@ namespace SystemIdleMonitor
     /// <summary>
     /// Constructor
     /// </summary>
-    public Queue_SIM(float _threshold, int _capacity)
+    public MonitorQueue(float _threshold, int _capacity)
     {
       Threshold = _threshold;
       Capacity = _capacity;
@@ -43,9 +42,9 @@ namespace SystemIdleMonitor
     }
 
     /// <summary>
-    ///  Reset
+    ///  Clear
     /// </summary>
-    public void Reset()
+    public void Clear()
     {
       if (Enable == false) return;
       LatestValue = 0;

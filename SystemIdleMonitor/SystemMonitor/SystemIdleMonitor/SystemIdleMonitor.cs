@@ -12,10 +12,9 @@ namespace SystemIdleMonitor
   /// </summary>
   public class SystemIdleMonitor
   {
-    private SystemCounter Counter;
-    private Queue_SIM queCpu, queHDD, queNet;
-
     private readonly object sync = new object();
+    private SystemCounter Counter;
+    private MonitorQueue queCpu, queHDD, queNet;
     private Timer timer;
     public bool IsWorking { get; private set; }
     private DateTime StartTime;
@@ -29,11 +28,13 @@ namespace SystemIdleMonitor
     {
       //Queue
       int capacity = duration_sec;
-      queCpu = new Queue_SIM(thd_cpu, capacity);  //thdがマイナスなら無効状態で作成される。
-      queHDD = new Queue_SIM(thd_hdd, capacity);
-      queNet = new Queue_SIM(thd_net, capacity);
+      queCpu = new MonitorQueue(thd_cpu, capacity);  //thdがマイナスなら無効状態で作成される。
+      queHDD = new MonitorQueue(thd_hdd, capacity);
+      queNet = new MonitorQueue(thd_net, capacity);
       Counter = new SystemCounter();
-      //timer
+      Counter.HDD.SetPrefix(BytePerSec.MiBps);
+      Counter.Network.SetPrefix(bitPerSec.Mibps);
+
       timer = new Timer(new TimerCallback(timer_Tick));
     }
 
@@ -44,10 +45,10 @@ namespace SystemIdleMonitor
     {
       lock (sync)
       {
-        queCpu.Reset();
-        queHDD.Reset();
-        queNet.Reset();
-        timer.Change(0, 1000);         //１秒間隔で処理
+        queCpu.Clear();
+        queHDD.Clear();
+        queNet.Clear();
+        timer.Change(0, 1000);
         StartTime = DateTime.Now;
         IsWorking = true;
       }
@@ -75,9 +76,9 @@ namespace SystemIdleMonitor
         if (queCpu.Enable)
           queCpu.Enqueue(Counter.Processor.Usage());
         if (queHDD.Enable)
-          queHDD.Enqueue(Counter.HDD.TotalTransfer(BytePerSec.MiBps));
+          queHDD.Enqueue(Counter.HDD.TotalTransfer());
         if (queNet.Enable)
-          queNet.Enqueue(Counter.Network.Transfer(bitPerSec.Mibps));
+          queNet.Enqueue(Counter.Network.Transfer());
       }
     }
 
@@ -112,26 +113,26 @@ namespace SystemIdleMonitor
         //Threshold
         line = "";
         line += "Threshold :";
-        line += (queCpu.Enable) ? string.Format(cpuformat, queCpu.Threshold) : space;
-        line += (queHDD.Enable) ? string.Format(hddformat, queHDD.Threshold) : space;
-        line += (queNet.Enable) ? string.Format(netformat, queNet.Threshold) : space;
+        line += queCpu.Enable ? string.Format(cpuformat, queCpu.Threshold) : space;
+        line += queHDD.Enable ? string.Format(hddformat, queHDD.Threshold) : space;
+        line += queNet.Enable ? string.Format(netformat, queNet.Threshold) : space;
         state.AppendLine(line);
         //Average
         line = "";
         line += "  Average :";
-        line += (queCpu.Enable) ? string.Format(cpuformat, queCpu.Average) : space;
-        line += (queHDD.Enable) ? string.Format(hddformat, queHDD.Average) : space;
-        line += (queNet.Enable) ? string.Format(netformat, queNet.Average) : space;
+        line += queCpu.Enable ? string.Format(cpuformat, queCpu.Average) : space;
+        line += queHDD.Enable ? string.Format(hddformat, queHDD.Average) : space;
+        line += queNet.Enable ? string.Format(netformat, queNet.Average) : space;
         state.AppendLine(line);
         //Value
         line = "";
         line += "    Value :";
-        line += (queCpu.Enable) ? string.Format(cpuformat, queCpu.LatestValue) : space;
-        line += (queHDD.Enable) ? string.Format(hddformat, queHDD.LatestValue) : space;
-        line += (queNet.Enable) ? string.Format(netformat, queNet.LatestValue) : space;
+        line += queCpu.Enable ? string.Format(cpuformat, queCpu.LatestValue) : space;
+        line += queHDD.Enable ? string.Format(hddformat, queHDD.LatestValue) : space;
+        line += queNet.Enable ? string.Format(netformat, queNet.LatestValue) : space;
         state.AppendLine(line);
         //Fill
-        var quelist = new Queue_SIM[] { queCpu, queHDD, queNet };
+        var quelist = new MonitorQueue[] { queCpu, queHDD, queNet };
         quelist = quelist.Where((que) => que.Enable).ToArray();
         if (quelist.Any())
         {

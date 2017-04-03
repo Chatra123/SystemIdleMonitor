@@ -14,31 +14,29 @@ namespace SystemIdleMonitor
     public List<string> ProcessList { get; private set; }
     public string[] TextFileArgs { get; private set; }
 
-    //テキストパス
+    //パス
     //    外部プロジェクト Valve2Pipeから呼び出してもAppNameはSystemIdleMonitor.exeのまま。
     static readonly string AppPath = System.Reflection.Assembly.GetExecutingAssembly().Location,
                            AppDir = Path.GetDirectoryName(AppPath),
                            AppName = Path.GetFileNameWithoutExtension(AppPath),
                            Default_XmlName = AppName + ".xml",
                            Default_XmlPath = Path.Combine(AppDir, Default_XmlName);
-
-    readonly string SIM_Default_Path = Path.Combine(AppDir, AppName + ".txt");
+    readonly string SIM_Default_TxtPath = Path.Combine(AppDir, AppName + ".txt");
 
     /// <summary>
     /// 設定ファイル読込み
     /// </summary>
-    public void Load(string path = null, string Default_Text = null)
+    public void Load(string path = null, string text = null)
     {
-      path = path ?? SIM_Default_Path;
-      Default_Text = Default_Text ?? Setting_Text_Default.SystemIdleMonitor;
+      path = path ?? SIM_Default_TxtPath;
+      text = text ?? SIM_Text.Default;
 
       //読込み
       if (File.Exists(path) == false)
       {
-        File.WriteAllText(path, Default_Text, Encoding.UTF8);
+        File.WriteAllText(path, text, Encoding.UTF8);
       }
       var readfile = File.ReadAllLines(path).ToList();
-
       //前処理
       readfile = readfile.Select(
                           (line) =>
@@ -46,41 +44,36 @@ namespace SystemIdleMonitor
                             //コメント削除
                             int found = line.IndexOf("//");
                             line = (0 <= found) ? line.Substring(0, found) : line;
-                            line = line.Trim();
-                            return line;
+                            return line.Trim();
                           })
                           .Where((line) => string.IsNullOrWhiteSpace(line) == false)    //空白行削除
                           .Distinct()                                                   //重複削除
                           .ToList();
       //ProcessList
       ProcessList = readfile.Select(
-       (line) =>
-       {
-         //.exe削除
-         bool haveExe = (Path.GetExtension(line).ToLower() == ".exe");
-         line = (haveExe) ? Path.GetFileNameWithoutExtension(line) : line;
+                            (line) =>
+                            {
+                              //.exe削除
+                              bool hasExe = (Path.GetExtension(line).ToLower() == ".exe");
+                              line = hasExe ? Path.GetFileNameWithoutExtension(line) : line;
+                              //ワイルドカード　→　正規表現
+                              line = Regex.Replace(line, @"\?", ".");
+                              line = Regex.Replace(line, @"\*", ".*");
+                              return line;
+                            })
+                            .ToList();
 
-         //ワイルドカード　→　正規表現
-         line = Regex.Replace(line, @"\?", ".");
-         line = Regex.Replace(line, @"\*", ".*");
-         return line;
-       })
-       .ToList();
-
-
-      //ファイルからの引数
+      //TextFileArgs
       {
-        //string "-cpu 30"をスペースで分割してList<string>に変換。
+        //string "-cpu 30"をスペースで分割してList<string>に変換
         //List<string>  →  List<List<string>>
         var L1 = readfile.Select(line =>
         {
           return line.Split(new char[] { ' ', '　', '\t' }).ToList();
         });
-
         //List<List<string>>  →  List<string>
         var L2 = L1.SelectMany(element => element)
                     .Where((line) => string.IsNullOrWhiteSpace(line) == false);  //空白行削除
-
         TextFileArgs = L2.ToArray();
       }
 
@@ -88,9 +81,9 @@ namespace SystemIdleMonitor
   }
 
   //設定テキスト
-  public static class Setting_Text_Default
+  public static class SIM_Text
   {
-    public const string SystemIdleMonitor =
+    public const string Default =
    @"
 //
 //### SystemIdleMonitorについて

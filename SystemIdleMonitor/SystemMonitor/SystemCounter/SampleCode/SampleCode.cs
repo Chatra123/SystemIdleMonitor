@@ -17,17 +17,18 @@ namespace SystemIdleMonitor.Sample
     {
       //起動に数秒かかる
       var systemCounter = new SystemCounter();
+      systemCounter.HDD.SetPrefix(BytePerSec.MiBps);
+      systemCounter.Network.SetPrefix(bitPerSec.Mibps);
 
       while (true)
       {
         float CPU = systemCounter.Processor.Usage();
-        float HDD_read = systemCounter.HDD.Total.Read(BytePerSec.KiBps);
-        float Net_down = systemCounter.Network.Receive(bitPerSec.Kibps);
+        float HDD_read = systemCounter.HDD.Total.Read();
+        float Net_down = systemCounter.Network.Receive();
 
         string line = string.Format(
           "  {0,6:f2} %    {1,6:f2} KiB/s    {2,6:f2} Kibps",
           CPU, HDD_read, Net_down);
-
         Console.WriteLine(line);
         Thread.Sleep(1000);
       }
@@ -38,17 +39,17 @@ namespace SystemIdleMonitor.Sample
     /// </summary>
     public static void Run_SystemCounter_2()
     {
-      //mpc-be64を２つ起動してから実行する
+      //mpc-be64.exeを２つ起動してから実行する
       const string MediaPlayer = "mpc-be64";
+
+      //プロセス名からＰＩＤ取得
+      var mplayer_list = Process.GetProcessesByName(MediaPlayer);
+      if (mplayer_list.Count() <= 1) throw new Exception();  //"mpc-be64"が２つ起動していない
+      int pid0 = mplayer_list[0].Id;
+      int pid1 = mplayer_list[1].Id;
 
       //起動に数秒かかる
       var systemCounter = new SystemCounter();
-
-      var mplayer_list = Process.GetProcessesByName(MediaPlayer);
-      if (mplayer_list.Count() <= 1) throw new Exception();  //"mpc-be64"が２つ起動していない
-
-      int pid0 = mplayer_list[0].Id;
-      int pid1 = mplayer_list[1].Id;
       var counter0 = new SystemCounter.ProcessCPUCounter();
       var counter1 = new SystemCounter.ProcessCPUCounter();
       counter0.Create(pid0);
@@ -63,7 +64,6 @@ namespace SystemIdleMonitor.Sample
         string line = string.Format(
           "  {0,6:f2} %    {1,6:f2} %        {2,6:f2} %",
           mplayer_0, mplayer_1, cpu_idle);
-
         Console.WriteLine(line);
         Thread.Sleep(1000);
       }

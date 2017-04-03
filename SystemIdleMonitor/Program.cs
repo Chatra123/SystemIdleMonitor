@@ -10,7 +10,7 @@ namespace SystemIdleMonitor
   /// <summary>
   /// 閾値のデフォルト値
   /// </summary>
-  internal static class DefThreshold
+  internal static class DefaultValue
   {
     public const float
       //      %            MiB/sec          Mbps            sec           sec
@@ -54,14 +54,13 @@ namespace SystemIdleMonitor
 
       //CommandLine
       //初期値
-      CommandLine.SetDefault(new float[] { DefThreshold.Cpu, DefThreshold.Hdd, DefThreshold.Network,
-                                           DefThreshold.Durarion, DefThreshold.Timeout });
+      CommandLine.SetDefault(new float[] { DefaultValue.Cpu, DefaultValue.Hdd, DefaultValue.Network,
+                                           DefaultValue.Durarion, DefaultValue.Timeout });
       //設定ファイル
       var setting_file = new Setting_File();
       setting_file.Load();
       CommandLine.Parse(setting_file.TextFileArgs);
       CommandLine.Parse(appArgs);
-
 
       //ブラックプロセス
       blackChecker = new BlackProcessChecker(setting_file.ProcessList);
@@ -69,7 +68,6 @@ namespace SystemIdleMonitor
       {
         Exit_withIdle(false);          //終了　ブラックプロセス
       }
-
 
       //SystemIdleMonitor
       //  PerformanceCounterの作成は初回のみ数秒かかる。ＣＰＵ負荷も高い。
@@ -80,7 +78,6 @@ namespace SystemIdleMonitor
                                       CommandLine.NetThd,
                                       (int)duration);
       monitor.Start();
-
 
       //
       //main loop
@@ -105,7 +102,6 @@ namespace SystemIdleMonitor
           {
             Exit_withIdle(false);      //終了 タイムアウト
           }
-
           //System Is Idle ?
           if (monitor.SystemIsIdle()
             && blackChecker.NotExistBlack())
@@ -125,9 +121,7 @@ namespace SystemIdleMonitor
     {
       var text = new StringBuilder();
       var system = (monitor != null) ? monitor.MonitorState() : "";
-
       var black = (blackChecker.NotExistBlack()) ? "○" : "×";
-
       var idle = (monitor != null
         && monitor.SystemIsIdle()) ? "○" : "×";
 

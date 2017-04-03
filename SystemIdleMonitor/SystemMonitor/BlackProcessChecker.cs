@@ -45,7 +45,6 @@ namespace SystemIdleMonitor
             continue;
           }
         }
-
       return true;                               //未検出
     }
 

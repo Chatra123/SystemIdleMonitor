@@ -14,9 +14,7 @@ namespace SystemIdleMonitor
   {
     SystemCounter systemCounter;
     SystemCounter.ProcessCPUCounter processCounter;
-
     int Process_CPU_Max, System__CPU_Max;
-
 
     /// <summary>
     /// initialize
@@ -27,12 +25,9 @@ namespace SystemIdleMonitor
       //ProcessのＣＰＵ使用率に関しては評価されない。
       System__CPU_Max = system__CPU_Max;
       Process_CPU_Max = process_CPU_Max;
-
       systemCounter = new SystemCounter();
-
       processCounter = new SystemCounter.ProcessCPUCounter();
       processCounter.Create(pid);
-
     }
 
     /// <summary>
