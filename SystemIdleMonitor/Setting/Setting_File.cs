@@ -86,7 +86,7 @@ namespace SystemIdleMonitor
     public const string Default =
    @"
 //
-//### SystemIdleMonitorについて
+// # SystemIdleMonitorについて
 //
 //  * ＣＰＵ使用率が低いかを監視し、指定プロセスが動いていないことも確認します。
 //
@@ -96,7 +96,7 @@ namespace SystemIdleMonitor
 //
 //
 //
-//### プロセスでフィルター
+// ## プロセスでフィルター
 //
 //  * プロセスのイメージ名はこのファイルの下部に書いてください。
 //    イメージ名はタスクマネージャーを見てください。
@@ -115,7 +115,7 @@ namespace SystemIdleMonitor
 //
 //
 //
-//### コマンドライン
+// ## コマンドライン
 //
 //  * コマンドライン引数で閾値を変更できます。
 //
@@ -130,10 +130,11 @@ namespace SystemIdleMonitor
 //
 //
 //
-//### 文字コード
+// ## 他
 //
-//  * このテキストの文字コード　UTF-8 bom
+//  * //以降はコメント
 //
+//  * このテキストの文字コード  UTF-8 bom
 //
 //
 
