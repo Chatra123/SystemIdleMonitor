@@ -24,20 +24,20 @@ namespace SystemIdleMonitor
     }
 
     /// <summary>
-    /// ブラックプロセスが稼動していない？
+    /// ブラックプロセスが稼動していないか？
     /// </summary>
     public bool NotExistBlack()
     {
-      var allProcesses = Process.GetProcesses();
+      var all = Process.GetProcesses();
 
-      foreach (var pattern in BlackList)         //監視するプロセス名のパターン
-        foreach (var prc in allProcesses)        //稼動中の全プロセス
+      foreach (var pattern in BlackList)   //Regex pattern
+        foreach (var prc in all)           //全プロセス
         {
           //部分一致ではなく完全一致で検索
           try
           {
             var hit = Regex.IsMatch(prc.ProcessName, "^" + pattern + "$", RegexOptions.IgnoreCase);
-            if (hit) return false;               //ブラックプロセス検出
+            if (hit) return false;               //検出
           }
           catch
           {

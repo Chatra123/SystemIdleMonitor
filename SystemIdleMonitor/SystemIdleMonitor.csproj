@@ -51,7 +51,7 @@
     <Compile Include="SystemMonitor\SystemIdleMonitor\MonitorQueue.cs" />
     <Compile Include="SystemMonitor\SystemCounter\SampleCode\SampleCode.cs" />
     <Compile Include="SystemMonitor\SystemCounter\SystemCounter.cs" />
-    <Compile Include="SystemMonitor\ProcessBusyChecker.cs" />
+    <Compile Include="SystemMonitor\BusyProcessChecker.cs" />
     <Compile Include="SystemMonitor\SystemIdleMonitor\SystemIdleMonitor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -110,7 +110,10 @@ namespace SystemIdleMonitor
     /// ＰＩＤからプロセスのインスタンス名取得
     /// 複数のインスタンスがあると  notepad   notepad#1  notepad#2  になる。  
     /// </summary>
-    public static String GetInstanceName_ById(int pid)
+    /// <returns>
+    /// fail --> null
+    /// </returns>
+    public static string GetInstanceName_fromPID(int pid)
     {
       string prcName;
       try
@@ -221,7 +224,7 @@ namespace SystemIdleMonitor
     /// </summary>
     public class ProcessCPUCounter
     {
-      public int Id { get; private set; }                  //PID
+      public int PID { get; private set; }
       public string InsName { get; private set; }          //インスタンス名
       public bool IsAlive { get; private set; }            //プロセスの生存
       private readonly int cpu_count = Environment.ProcessorCount;  //ＣＰＵコア数
@@ -232,7 +235,7 @@ namespace SystemIdleMonitor
       /// </summary>
       public bool Create(int pid)
       {
-        string name = CounterFactory.GetInstanceName_ById(pid);
+        string name = CounterFactory.GetInstanceName_fromPID(pid);
         if (string.IsNullOrEmpty(name) == false)
         {
           Create(pid, name);
@@ -245,7 +248,7 @@ namespace SystemIdleMonitor
       /// </summary>
       public bool Create(int pid, string insname)
       {
-        Id = pid;
+        PID = pid;
         InsName = insname;
         IsAlive = true;
 
