@@ -160,19 +160,25 @@ namespace SystemIdleMonitor
     /// PowerModeChangedEvent
     /// </summary>
     /// <remarks>
-    /// PowerModes.Suspend  →  [windows sleep]  →  PowerModes.Resume    の順で発生するとはかぎらない。
-    ///                         [windows sleep]  →  PowerModes.Suspend  →  PowerModes.Resume 又は
-    ///                         [windows sleep]  →  PowerModes.Resume   →  PowerModes.Suspend
-    /// の順でイベントが処理されることもある。
+    /// PowerModes.Suspend  →  [windows sleep]  →  PowerModes.Resume  の順で発生するとはかぎらない。
+    ///                         [windows sleep]  →  PowerModes.Resume   →  PowerModes.Suspend 又は
+    ///                         [windows sleep]  →  PowerModes.Suspend  →  PowerModes.Resume
+    /// の順で関数が処理されることもある。（lock順）
     /// </remarks>
     private static void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
       lock (sync)
       {
-        Exit_withIdle(false);
+        if (e.Mode == PowerModes.Suspend || e.Mode == PowerModes.Resume)
+        {
+          Exit_withIdle(false);
+        }
+        else if (e.Mode == PowerModes.StatusChange)
+        {
+          /* do nothing */
+        }
       }
     }
-
     #endregion PowerModeChangedEvent
   }
 }
